@@ -1,18 +1,32 @@
-# Options 
+# Options #
+This project is wrapper around [```boost::program_options```](http://www.boost.org/doc/libs/1_63_0/doc/html/program_options.html), designed with the aim to make it easy to manage and reuse any sizeable number of options.
 
-#### Minimal example
+## Main features
+Every option is a class, and this brings several advantages:
+
+* Every option is defined in one place, and can be re-used in several executables.
+* Options are referred to by the class name, and not by a string literal.
+* Option value can be post-processed using other options. E.g. you can have options ```DataDirectory```, ```InputFile```, and ```OutputFile```, and you can make ```InputFile``` and ```OutputFile``` to automatically prepend the specified ```DataDirectory```.
+* The post-processing logic (including validity checking) can be encapsulated. The implementation stays where the option is defined, and not where the option is used.
+* Options can be combined in groups like: ```using IOOptions = std::tuple< DataDirectory, InputFile, OutputFile >;```, 
+  also in a nested manner, like: ```using MyAnalysisOptions = std::tuple< IOOptions, BeamEnergy >;```
+
+
+# Examples
+
+### Define an option
+An option is defined by defining a class, deriving from the class template ```Option<ValueType>```:
 
 ```c++
-#include "Options.h"
-#include <ostream>
-
 class OptNFrames : public Option<int> {
 public:
-    std::string  name()          const { return "n-frames"; }
-    std::string  description()   const { return "Number of frames to process"; }
-    Optional     default_value() const { return 1000; }
+    std::string name()        const { return "n-frames"; }
+    std::string description() const { return "Number of frames to process"; }
 };
+```
 
+### Use an option
+```c++
 int main( int argc, const char** argv )
 {
     Options opt;
@@ -34,6 +48,10 @@ Processing 1000 frames
 $ ./analysis --n-frames=35
 Processing 35 frames
 ```
+
+Complete example is in ```minimal_example.cpp```.
+
+
 
 #### Several options
 ```c++
@@ -117,10 +135,3 @@ int main( int argc, const char** argv )
 ```
 
 especially in the chain of constructor calls:
-
-
-
-
-
-
-
