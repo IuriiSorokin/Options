@@ -1,6 +1,35 @@
-# Options 
+# Options #
+This project is wrapper around [```boost::program_options```](http://www.boost.org/doc/libs/1_63_0/doc/html/program_options.html), designed with the aim to make it easy to manage and reuse any sizeable number of options.
 
-#### Minimal example
+## Main features
+Every option is a class, and this brings several advantages:
+
+* Every option is defined in one place, and can be re-used in several executables.
+* Options are referred to by the class name, and not by a string literal.
+* Option value can be post-processed using other options. E.g. you can have options ```DataDirectory```, ```InputFile```, and ```OutputFile```, and you can make ```InputFile``` and ```OutputFile``` to automatically prepend the specified ```DataDirectory```.
+* The post-processing logic (including validity checking) can be encapsulated. The implementation where the option is defined, and not where the option is used.
+* Options can be combined in groups like: ```using IOOptions = std::tuple< DataDirectory, InputFile, OutputFile >;```, 
+  also in a nested manner, like: ```using MyAnalysisOptions = std::tuple< IOOptions, BeamEnergy >;```
+
+
+
+### Define an option
+```c++
+class OptNFrames : public Option<int> {
+public:
+    std::string  name()          const { return "n-frames"; }
+    std::string  description()   const { return "Number of frames to process"; }
+    Optional     default_value() const { return 1000; }
+};
+```
+
+
+```minimal_example.cpp``` shows how to define and 
+
+
+
+
+### Minimal example
 
 ```c++
 #include "Options.h"
@@ -117,10 +146,3 @@ int main( int argc, const char** argv )
 ```
 
 especially in the chain of constructor calls:
-
-
-
-
-
-
-
