@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <ostream>
 #include <fstream>
+#include "polymorphic.h"
 
 class OptionBase;
 
@@ -18,7 +19,6 @@ class Options;
 
 template< typename ValueType >
 class Option;
-
 
 
 /**
@@ -34,8 +34,9 @@ protected:
 
     /** To avoid forcing the users to define (or explicitly inherit) a non-trivial constructor
      *  in their implementations of Option<ValueType> */
-    template<typename OptionType>
-    static std::unique_ptr<OptionBase>
+    template<typename OptionType,
+             typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type = true >
+    static OptionType
     construct( const Options* options );
 
 public:
@@ -63,9 +64,13 @@ protected:
     virtual void
     set_from_vm( const boost::program_options::variables_map& vm ) = 0;
 
-    /** see Option<ValueType>::set_from_vm(...) */
+    /** see Option<ValueType>::assign_to(...) */
     virtual void
     assign_to( const Options* options ) = 0;
+
+    /** see Option<ValueType>::get_assigned_to() */
+    virtual const Options*
+    get_assigned_to() const = 0;
 };
 
 
@@ -157,6 +162,10 @@ protected:
     virtual void
     assign_to( const Options* options ) override;
 
+    /** Pointer to the corresponding Options object. */
+    virtual const Options*
+    get_assigned_to() const override;
+
     /** Declare this option in the \p opt_descr. \n
      *  Needed by Options::parse to construct
      *  the boost::program_options::options_description
@@ -188,20 +197,26 @@ private:
     std::string _caption;
     unsigned    _lineLength;
     unsigned    _minDescriptionLength;
-    std::vector< std::unique_ptr< OptionBase > > _options;
+    std::vector< polymorphic< OptionBase > > _options;
 
 public:
     Options( const std::string& caption = "Available options",
              unsigned lineLength = 120,
              unsigned minDescriptionLength = 80 );
 
-    /** It would require to implement a polymorphic clone of Option<ValueType>,
-     *  which in turn would require the user to use either CRTP or macros when
-     *  defining a new option, and I don't want either. \n
-     *  Feel free to propose your solution. */
-    Options( const Options& options ) = delete;
+    Options( const Options& options );
 
     Options( Options&& options );
+
+    Options&
+    operator=( const Options& other );
+
+    Options&
+    operator=( Options&& other );
+
+    ~Options() = default;
+
+    // friend void swap( Options& first, Options& second );
 
     /** Declare a single option. \n
      *  If this option has already been declared, no action is done. \n
@@ -329,7 +344,7 @@ protected:
     set_from_vm( const variables_map & vm )
     {
         for( auto & option : _options ) {
-            option->set_from_vm( vm );
+            option.get().set_from_vm( vm );
         }
     }
 
@@ -337,12 +352,13 @@ protected:
 
 
 
-template<typename OptionType>
-std::unique_ptr<OptionBase>
+template<typename OptionType,
+         typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type >
+OptionType
 OptionBase::construct( const Options* options )
 {
-    auto option = std::unique_ptr<OptionBase>( new OptionType() );
-    option->assign_to( options );
+    auto option = OptionType();
+    dynamic_cast<OptionBase*>(&option)->assign_to( options );
     return option;
 }
 
@@ -398,6 +414,15 @@ Option<ValueType>::assign_to( const Options* options )
 
 
 template< typename ValueType >
+const Options*
+Option<ValueType>::get_assigned_to() const
+{
+    return _options;
+}
+
+
+
+template< typename ValueType >
 void
 Option<ValueType>::declare( boost::program_options::options_description& opt_descr ) const
 {
@@ -441,6 +466,20 @@ Options::Options( const std::string& caption,
 
 
 inline
+Options::Options( const Options& options )
+: _caption( options._caption )
+, _lineLength( options._lineLength )
+, _minDescriptionLength( options._minDescriptionLength )
+, _options( options._options )
+{
+    for( auto& option: _options ) {
+        option.get().assign_to( this );
+    }
+}
+
+
+
+inline
 Options::Options( Options&& options )
 : _caption( std::move(options._caption) )
 , _lineLength( options._lineLength )
@@ -448,9 +487,70 @@ Options::Options( Options&& options )
 , _options( std::move( options._options ) )
 {
     for( auto& option: _options ) {
-        option->assign_to( this );
+        option.get().assign_to( this );
     }
 }
+
+
+
+Options&
+Options::operator=( const Options& other )
+{
+    _caption              = other._caption;
+    _lineLength           = other._lineLength;
+    _minDescriptionLength = other._minDescriptionLength;
+    _options              = other._options;
+
+    for( auto& option: _options ) {
+        option.get().assign_to( this );
+    }
+
+    return *this;
+}
+
+
+
+Options&
+Options::operator=( Options&& other )
+{
+    _caption              = std::move( other._caption );
+    _lineLength           = std::move( other._lineLength );
+    _minDescriptionLength = std::move( other._minDescriptionLength );
+    _options              = std::move( other._options );
+
+    for( auto& option: _options ) {
+        option.get().assign_to( this );
+    }
+
+    return *this;
+}
+
+
+
+//void
+//swap( Options& first, Options& second )
+//{
+//    for( auto& option: first._options ) {
+//        assert( option.get().get_assigned_to() == &first );
+//    }
+//    for( auto& option: second._options ) {
+//        assert( option.get().get_assigned_to() == &second );
+//    }
+//
+//    using std::swap;
+//    swap( first._caption,              second._caption    );
+//    swap( first._lineLength,           second._lineLength );
+//    swap( first._minDescriptionLength, second._minDescriptionLength );
+//    swap( first._options,              second._options );
+//
+//    for( auto& option: first._options ) {
+//        option.get().assign_to( &first );
+//    }
+//
+//    for( auto& option: second._options ) {
+//        option.get().assign_to( &second );
+//    }
+//}
 
 
 
@@ -461,7 +561,7 @@ Options & Options::declare()
     assert_no_name_collisions<OptionType>();
 
     if( not is_declared<OptionType>() ) {
-        _options.push_back( OptionBase::construct<OptionType>( this ) );
+        _options.push_back( polymorphic<OptionBase>( OptionBase::construct<OptionType>( this ) ) );
     }
 
     return *this;
@@ -503,7 +603,7 @@ Options::is_declared() const
 {
     bool declared = false;
     for( const auto& option : _options ) {
-        if( typeid(*option) == typeid(OptionType) ) {
+        if( typeid( option.get() ) == typeid(OptionType) ) {
             assert( not declared );
             declared = true;
         }
@@ -520,9 +620,9 @@ Options::find() const
     const OptionType* found = nullptr;
 
     for( const auto& option : _options ) {
-        if( typeid(*option) == typeid(OptionType) ) {
+        if( typeid( option.get() ) == typeid(OptionType) ) {
             assert( not found && "There must be not more than one instance of type OptionType in the _options vector." );
-            found = dynamic_cast<const OptionType*>( option.get() );
+            found = dynamic_cast<const OptionType*>( &(option.get()) );
         }
     }
 
@@ -538,9 +638,9 @@ Options::find()
     OptionType* found = nullptr;
 
     for( const auto& option : _options ) {
-        if( typeid(*option) == typeid(OptionType) ) {
+        if( typeid( option.get() ) == typeid(OptionType) ) {
             assert( not found && "There must be not more than one instance of type OptionType in the _options vector." );
-            found = dynamic_cast<OptionType*>( option.get() );
+            found = dynamic_cast<OptionType*>( &(option.get()) );
         }
     }
 
@@ -555,7 +655,7 @@ Options::make_options_description() const
     auto opt_descr = options_description( _caption, _lineLength, _minDescriptionLength );
 
     for( const auto& option: _options ) {
-        option->declare( opt_descr );
+        option.get().declare( opt_descr );
     }
 
     return opt_descr;
@@ -681,7 +781,7 @@ void
 Options::assert_no_name_collisions() const
 {
     for( const auto& option : _options ) {
-        assert_no_name_collision<OptionType>( *option );
+        assert_no_name_collision<OptionType>( option.get() );
     }
 }
 

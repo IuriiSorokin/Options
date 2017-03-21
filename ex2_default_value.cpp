@@ -4,8 +4,9 @@
 
 class OptNFrames : public Option<int> {
 public:
-    std::string name()        const override { return "n-frames"; }
-    std::string description() const override { return "Number of frames to process"; }
+    std::string name()          const override { return "n-frames"; }
+    std::string description()   const override { return "Number of frames to process"; }
+    Optional    default_value() const override { return 1000; }
 };
 
 int main( int argc, const char** argv )
