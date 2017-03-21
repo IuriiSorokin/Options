@@ -2,8 +2,7 @@
 #include "Options.h"
 #include <ostream>
 
-class OptNFrames : public Option<int> {
-public:
+struct OptNFrames : public Option<int> {
     std::string name()          const override { return "n-frames"; }
     std::string description()   const override { return "Number of frames to process"; }
     Optional    default_value() const override { return 1000; }

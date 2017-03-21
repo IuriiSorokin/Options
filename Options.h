@@ -29,6 +29,9 @@ class OptionBase
 {
     friend class Options;
 
+private:
+    const Options* _options = nullptr;
+
 protected:
     OptionBase() = default;
 
@@ -55,6 +58,14 @@ public:
     virtual std::string
     description() const = 0;
 
+    /** see Option<ValueType>::is_valid(...) */
+    virtual bool
+    is_valid( std::string& error_message ) const = 0;
+
+    /** Calls is_valid(...) and throws std::invalid_argument if the value is invalid. */
+    void
+    check_valid() const;
+
 protected:
     /** see Option<ValueType>::declare(...) */
     virtual void
@@ -64,13 +75,16 @@ protected:
     virtual void
     set_from_vm( const boost::program_options::variables_map& vm ) = 0;
 
-    /** see Option<ValueType>::assign_to(...) */
-    virtual void
-    assign_to( const Options* options ) = 0;
+    /** Store the pointer to the corresponding Options object. This is necessary
+     *  in order to be able to access the values of other options from
+     *  Option<ValueType>::is_valid() and Option<ValueType>::value() functions. */
+    void
+    assign_to( const Options* options );
 
-    /** see Option<ValueType>::get_assigned_to() */
-    virtual const Options*
-    get_assigned_to() const = 0;
+    /** Pointer to the corresponding Options object. \n
+     *  See also assign_to(...) */
+    const Options*
+    get_assigned_to() const;
 };
 
 
@@ -85,7 +99,6 @@ public:
     using Optional   = boost::optional<value_type>;
 
 private:
-    const Options* _options = nullptr;
     Optional       _raw_value;
 
 public:
@@ -124,59 +137,43 @@ public:
      *     - Options::parse
      *     - Options::declare_and_set<OptionType>
      *  without the post-processing (as opposed to Option<ValueType>::value() ). \n
-     *  Asserts that the option was declared. \n
      *  Asserts that the value was set. */
     value_type
     raw_value() const;
 
     /** Override to add a validity check. \n
-     *  A meaningful explanation why the option value is invalid
-     *  may be returned via \p error_message.
-     *  If the option must always have a value, indicate it here. \n  */
+     *  If the option is required to always have a value, implement the check here. \n
+     *  \param[out] error_message Optional explanation why the option value is invalid. */
     virtual bool
     is_valid( std::string& error_message ) const
     { return true; }
 
-    /** Call to this->is_valid and throw std::invalid_argument (with the
-     *  returned \p error_message), if the value is invalid. */
-    void
-    check_valid() const;
-
-    /** Explicitly set the value of the option. \n
+    /** Set the option value.
+     *  Old value, if any, is silently overwritten. \n
      *  No validity check is performed. */
     void
     set( const value_type& value );
 
-    /** Check if the option value was set. \n
+    /** True if the option value was set. \n
      *  Option value can be set with:
-     *     - Option<ValueType>::set
-     *     - Options::parse
-     *     - Options::declare_and_set<OptionType> */
+     *     - Option<ValueType>::set(...)
+     *     - Options::parse(...)
+     *     - Options::declare_and_set<OptionType>(...) */
     bool
     is_set() const;
 
 protected:
-    /** Store the pointer to the corresponding Options object, in order
-     *  to be able to access the values of other options from the
-     *  Option<ValueType>::is_valid and Option<ValueType>::value functions. */
-    virtual void
-    assign_to( const Options* options ) override;
-
-    /** Pointer to the corresponding Options object. */
-    virtual const Options*
-    get_assigned_to() const override;
-
     /** Declare this option in the \p opt_descr. \n
-     *  Needed by Options::parse to construct
-     *  the boost::program_options::options_description
-     *  to perform the parsing.                          */
+     *  Needed by Options::parse to construct the boost::program_options::options_description
+     *  to perform the parsing. */
     virtual void
     declare( boost::program_options::options_description& opt_descr ) const override;
 
     /** Set the value from the variables_map. \n
-     *  Should be called from Options::parse to set the option value,
-     *  when parsing is completed, and the parsed values are stored in the
-     *  type-erased boost::program_options::variables_map.                  */
+     *  Called from Options::parse to set the option values.
+     *  The Options class can not set the values directly, as it doesn't know the
+     *  exact type of each option, so it gives the boost::program_options::variables_map.
+     *  to each option to find its value. */
     virtual void
     set_from_vm( const boost::program_options::variables_map& vm ) override final;
 };
@@ -200,9 +197,16 @@ private:
     std::vector< polymorphic< OptionBase > > _options;
 
 public:
-    Options( const std::string& caption = "Available options",
-             unsigned lineLength = 120,
-             unsigned minDescriptionLength = 80 );
+    /** With default \p caption, \p lineLength, and \p minDescriptionLength
+     *  See also the ctor with arguments. */
+    Options();
+
+    /** \param[in] caption                Caption in the help
+     *  \param[in] lineLength             Width of the help
+     *  \param[in] minDescriptionLength   Min width of the description column in the help */
+    Options( const std::string& caption,
+             unsigned lineLength,
+             unsigned minDescriptionLength );
 
     Options( const Options& options );
 
@@ -222,12 +226,12 @@ public:
      *  If this option has already been declared, no action is done. \n
      *  Asserts there are no name collisions. */
     template<typename OptionType,
-    typename std::enable_if< std::is_base_of< Option<typename OptionType::value_type>, OptionType >::value, bool >::type = true >
+    typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type = true >
     Options &
     declare();
 
     /** Declare a non-empty tuple of options. \n
-     *  If some of the options in the tuple have already been declared, these options are omitted silently.
+     *  Options that have already been declared are omitted silently.
      *  Asserts there are no name collisions.
      *  Note: don't specify the \p Index manually. */
     template<typename TupleType, size_t Index = 0,
@@ -235,7 +239,7 @@ public:
     Options &
     declare();
 
-    /** "Declare" an empty tuple of options. Necessary for technical reasons. */
+    /** Declare an empty tuple of options (i.e. do nothing). Necessary for technical reasons. */
     template<typename TupleType, size_t Index = 0,
     typename std::enable_if< ( Index == std::tuple_size<TupleType>::value ),  bool >::type = true >
     Options &
@@ -249,11 +253,23 @@ public:
     typename  std::enable_if< (sizeof...(OtherOptionsOrTuples) > 0), Options &>::type
     declare();
 
-    /** Declare a single option and set its value. \n
-     *  Asserts that the option has not yet been declared. */
+    /** Un-declare an option.
+     *  Asserts that the option was declared. */
+    template<typename OptionType,
+    typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type = true >
+    Options &
+    forget();
+
+    /** Declare and set in one call.
+     *  No validity check is done */
     template<typename OptionType>
     Options &
     declare_and_set( typename OptionType::value_type value );
+
+    /** Declare, set, and check_valid in one call. */
+    template<typename OptionType>
+    Options &
+    declare_set_check( typename OptionType::value_type value );
 
     /** Checks if the option OptionType has already been declared.
      *  Asserts that the option was not declared more that once. */
@@ -261,47 +277,50 @@ public:
     bool
     is_declared() const;
 
-    /** Set the option OptionType to the given value. \n
-     *  If the option has not been declared, declare it (assert there is no name collision). */
-    template<typename OptionType>
-    Options &
-    force( typename OptionType::value_type value );
-
-    /** Parse the command line arguments, and, if provided, also the optionsFile.
-     *  Command line arguments have a priority over the ones in the optionsFile,
-     *  and no warning is given in case of a conflict. The parsed values are set
-     *  to the options. It is not required, that all options obtain a value.
-     *  Finally, Option<ValueType>::check_valid() is called for every option that
-     *  has a value (independently, on whether the option has got the value as a result
-     *  of the parsing, or was set with Option<ValueType>::set(...) earlier). */
+    /** Parse the option values from the command line, and, if provided, also from the \p optionsFile.
+     *  The values specified from the command line (i.e. in the \p argv) have a priority over the ones
+     *  in the \p optionsFile. No warning is generated if one option is specified in both \p argv and \p optionsFile.
+     *  In case an undeclared option is encountered (either in \p argv or in \p optionsFile),
+     *  an exception is thrown.
+     *  The parsed values are set to the options. Old values of the options are overwritten without any warnings.
+     *  Finally, check_valid() is called for every option that has a value (regardless of whether the option
+     *  has got the value as a result of the parsing, or was set earlier). */
     Options &
     parse( int argc, const char ** argv, std::string optionsFile = "" );
 
     /** Get the value of the option. \n
-     *  Throws if the option was not declared, or if the value was not set.
-     *  Use is_declared<OptionType>() and
-     *  is_set<OptionType>() to check.*/
+     *  Asserts that the option was declared. \n
+     *  Asserts that the option has a value. \n
+     *  Use \c is_declared<OptionType>() and \c is_set<OptionType>() to check. */
     template<typename OptionType>
     typename OptionType::value_type
     get() const;
 
-    /** Get the value of the option. \n
-     *  Throws if the option was not declared.
-     *  If the options was not set, returns the \p fallback value. */
+    /** If the option was set, returns its value,
+     *  otherwise returns \p fallback. \n
+     *  Asserts that the option was declared. */
     template<typename OptionType>
     typename OptionType::value_type
     get_value_or( typename OptionType::value_type fallback ) const;
 
-    /** If the option value was set.
-     *  Throws if the option was not declared. */
+    /** True if the option value was set.
+     *  Asserts that the option was declared */
     template<typename OptionType>
     bool
     is_set() const;
 
-    /** Set the */
+    /** Set the option value. \n
+     *  Old value, if was available, is overwritten silently. \n
+     *  Asserts that the option was declared. \n
+     *  No validity check is done. */
     template<typename OptionType>
     Options&
     set( typename OptionType::value_type value);
+
+    /** set and check_valid (this option only) in one call */
+    template<typename OptionType>
+    Options&
+    set_and_check( typename OptionType::value_type value);
 
     void
     print_help( std::ostream& os ) const;
@@ -318,35 +337,45 @@ protected:
     void
     assert_no_name_collisions() const;
 
+    /** returns _options::cend() if the option was not found (not declared) */
     template<typename OptionType>
-    const OptionType*
-    find() const;
+    decltype(_options)::const_iterator
+    find_option() const;
 
+    /** returns _options::end() if the option was not found (not declared) */
     template<typename OptionType>
-    OptionType*
-    find();
+    decltype(_options)::iterator
+    find_option();
+
+    /** Asserts that the option was declared */
+    template<typename OptionType>
+    const OptionType&
+    get_option() const;
+
+    /** Asserts that the option was declared */
+    template<typename OptionType>
+    OptionType&
+    get_option();
 
     options_description
     make_options_description() const;
 
+    /** throws if \p optionsFile contain an non-declared option */
     void
     parse_from_file( const options_description & optionsDescription,
                      std::string optionsFile,
                      variables_map & parsedOptions );
 
+    /** throws if \p argv contain an non-declared option */
     void
     parse_from_command_line( const options_description & opt_descr,
                              int argc,
                              const char ** argv,
                              variables_map & parsed_options );
 
+    /** Set the values of all options in \p _options from the \p vm*/
     void
-    set_from_vm( const variables_map & vm )
-    {
-        for( auto & option : _options ) {
-            option.get().set_from_vm( vm );
-        }
-    }
+    set_from_vm( const variables_map & vm );
 
 };
 
@@ -364,24 +393,40 @@ OptionBase::construct( const Options* options )
 
 
 
-template< typename ValueType >
-typename Option<ValueType>::value_type
-Option<ValueType>::raw_value() const
+inline void
+OptionBase::check_valid() const
 {
-    assert( _raw_value.is_initialized() );
-    return _raw_value.get();
+    std::string error_message;
+    if( not is_valid( error_message ) ) {
+        throw std::invalid_argument( error_message );
+    }
+}
+
+
+
+inline void
+OptionBase::assign_to( const Options* options )
+{
+    _options = options;
+}
+
+
+
+inline const Options*
+OptionBase::get_assigned_to() const
+{
+    return _options;
 }
 
 
 
 template< typename ValueType >
-void
-Option<ValueType>::check_valid() const
+typename Option<ValueType>::value_type
+Option<ValueType>::raw_value() const
 {
-    std::string error;
-    if( not is_valid( error ) ) {
-        throw std::invalid_argument( error );
-    }
+
+    assert( _raw_value.is_initialized() );
+    return _raw_value.get();
 }
 
 
@@ -400,24 +445,6 @@ bool
 Option<ValueType>::is_set() const
 {
     return _raw_value.is_initialized();
-}
-
-
-
-template< typename ValueType >
-void
-Option<ValueType>::assign_to( const Options* options )
-{
-    _options = options;
-}
-
-
-
-template< typename ValueType >
-const Options*
-Option<ValueType>::get_assigned_to() const
-{
-    return _options;
 }
 
 
@@ -452,6 +479,14 @@ Option<ValueType>::set_from_vm( const boost::program_options::variables_map& vm 
         set( variableValue.as<ValueType>() );
     }
 }
+
+
+
+inline
+Options::Options()
+: Options( "Avaliable options", 120, 80 )
+{}
+
 
 
 inline
@@ -493,7 +528,7 @@ Options::Options( Options&& options )
 
 
 
-Options&
+inline Options&
 Options::operator=( const Options& other )
 {
     _caption              = other._caption;
@@ -510,7 +545,7 @@ Options::operator=( const Options& other )
 
 
 
-Options&
+inline Options&
 Options::operator=( Options&& other )
 {
     _caption              = std::move( other._caption );
@@ -555,7 +590,7 @@ Options::operator=( Options&& other )
 
 
 template<typename OptionType,
-typename std::enable_if< std::is_base_of< Option<typename OptionType::value_type>, OptionType >::value, bool >::type >
+typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type >
 Options & Options::declare()
 {
     assert_no_name_collisions<OptionType>();
@@ -597,6 +632,49 @@ Options::declare() {
 
 
 
+template<typename OptionType,
+typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type >
+Options &
+Options::forget()
+{
+    auto found = _options.end();
+
+    for( auto iOption = _options.begin(); iOption < _options.end(); ++iOption ) {
+        if( typeid( iOption->get() ) == typeid(OptionType) ) {
+            found = iOption;
+        }
+    }
+
+    assert( found != _options.end() );
+
+    _options.erase( found );
+
+    return *this;
+}
+
+
+
+template<typename OptionType>
+Options &
+Options::declare_and_set( typename OptionType::value_type value )
+{
+    return declare<OptionType>().set<OptionType>( value );
+}
+
+
+
+template<typename OptionType>
+Options &
+Options::declare_set_check( typename OptionType::value_type value )
+{
+    declare<OptionType>();
+    set<OptionType>( value );
+    get_option<OptionType>()->check_valid();
+    return *this;
+}
+
+
+
 template<typename OptionType>
 bool
 Options::is_declared() const
@@ -604,7 +682,7 @@ Options::is_declared() const
     bool declared = false;
     for( const auto& option : _options ) {
         if( typeid( option.get() ) == typeid(OptionType) ) {
-            assert( not declared );
+            assert( not declared && "Must not be declared twice" );
             declared = true;
         }
     }
@@ -614,15 +692,15 @@ Options::is_declared() const
 
 
 template<typename OptionType>
-const OptionType*
-Options::find() const
+auto
+Options::find_option() const -> decltype(_options)::const_iterator
 {
-    const OptionType* found = nullptr;
+    auto found = _options.end();
 
-    for( const auto& option : _options ) {
-        if( typeid( option.get() ) == typeid(OptionType) ) {
-            assert( not found && "There must be not more than one instance of type OptionType in the _options vector." );
-            found = dynamic_cast<const OptionType*>( &(option.get()) );
+    for( auto iOption = _options.begin(); iOption < _options.end(); ++iOption ) {
+        if( typeid( iOption->get() ) == typeid(OptionType) ) {
+            assert( found == _options.end() && "There must be not more than one instance of type OptionType in the _options vector." );
+            found = iOption;
         }
     }
 
@@ -632,24 +710,38 @@ Options::find() const
 
 
 template<typename OptionType>
-OptionType*
-Options::find()
+auto
+Options::find_option() -> decltype(_options)::iterator
 {
-    OptionType* found = nullptr;
-
-    for( const auto& option : _options ) {
-        if( typeid( option.get() ) == typeid(OptionType) ) {
-            assert( not found && "There must be not more than one instance of type OptionType in the _options vector." );
-            found = dynamic_cast<OptionType*>( &(option.get()) );
-        }
-    }
-
-    return found;
+    const auto& const_this = *this;
+    return decltype(_options)::iterator( const_this.find_option<OptionType>() );
 }
 
 
 
-Options::options_description
+template<typename OptionType>
+const OptionType&
+Options::get_option() const
+{
+    auto iter = find_option<OptionType>();
+    assert( iter != _options.cend() && "Option was found" );
+    return dynamic_cast< const OptionType&>( (*iter).get() );
+}
+
+
+
+template<typename OptionType>
+OptionType&
+Options::get_option()
+{
+    auto iter = find_option<OptionType>();
+    assert( iter != _options.end() && "Option was found" );
+    return dynamic_cast<OptionType&>( (*iter).get() );
+}
+
+
+
+inline Options::options_description
 Options::make_options_description() const
 {
     auto opt_descr = options_description( _caption, _lineLength, _minDescriptionLength );
@@ -663,8 +755,7 @@ Options::make_options_description() const
 
 
 
-
-Options&
+inline Options&
 Options::parse( int argc, const char ** argv, std::string optionsFile )
 {
     auto vm = boost::program_options::variables_map();
@@ -678,6 +769,10 @@ Options::parse( int argc, const char ** argv, std::string optionsFile )
 
     set_from_vm( vm );
 
+    for( const auto& option: _options ) {
+        option.get().check_valid();
+    }
+
     return *this;
 }
 
@@ -687,14 +782,9 @@ template<typename OptionType>
 typename OptionType::value_type
 Options::get() const
 {
-    const auto& option = find<OptionType>();
-    if( nullptr == option ) {
-        throw std::logic_error( std::string("Option ") + "--"+ OptionType().name() + " was not declared." );
-    }
-    if( not option->is_set() ) {
-        throw std::invalid_argument( std::string("Option ") + "--"+ OptionType().name() + " was not set." );
-    }
-    return option->value();
+    const auto& option = get_option<OptionType>();
+    assert( option.is_set() );
+    return option.value();
 }
 
 
@@ -703,7 +793,7 @@ template<typename OptionType>
 bool
 Options::is_set() const
 {
-    return find<OptionType>()->is_set();
+    return get_option<OptionType>().is_set();
 }
 
 
@@ -712,10 +802,7 @@ template<typename OptionType>
 typename OptionType::value_type
 Options::get_value_or( typename OptionType::value_type fallback ) const
 {
-    if( is_set<OptionType>() ) {
-        return get<OptionType>();
-    }
-    return fallback;
+    return is_set<OptionType>() ? get<OptionType>() : fallback;
 }
 
 
@@ -724,12 +811,25 @@ template<typename OptionType>
 Options&
 Options::set( typename OptionType::value_type value)
 {
-    return find<OptionType>()->set( value );
+    return get_option<OptionType>()->set( value );
 }
 
 
 
-void Options::parse_from_file( const options_description& optionsDescription,
+template<typename OptionType>
+Options&
+Options::set_and_check( typename OptionType::value_type value)
+{
+    auto& option = get_option<OptionType>();
+    option->set( value );
+    option->check_valid();
+    return *this;
+}
+
+
+
+inline void
+Options::parse_from_file( const options_description& optionsDescription,
                                std::string optionsFile,
                                variables_map& parsedOptions  )
 {
@@ -743,7 +843,8 @@ void Options::parse_from_file( const options_description& optionsDescription,
 
 
 
-void Options::parse_from_command_line( const options_description & opt_descr,
+inline void
+Options::parse_from_command_line( const options_description & opt_descr,
                                        int argc,
                                        const char ** argv,
                                        variables_map & parsed_options  )
@@ -753,8 +854,17 @@ void Options::parse_from_command_line( const options_description & opt_descr,
 }
 
 
+inline void
+Options::set_from_vm( const variables_map & vm )
+{
+    for( auto & option : _options ) {
+        option.get().set_from_vm( vm );
+    }
+}
 
-void
+
+
+inline void
 Options::print_help( std::ostream& os ) const
 {
     os << make_options_description() << std::endl;
