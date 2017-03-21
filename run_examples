@@ -1,0 +1,21 @@
+#!/bin/sh
+
+function run {
+        echo 
+        echo ">" $1
+        echo
+        $1
+        echo
+        echo
+}
+
+run "./ex1_minimal_usage --n-frames=20"
+
+run "./ex1_minimal_usage"
+
+run "./ex2_default_value --n-frames=20"
+
+run "./ex2_default_value"
+
+run "./ex5_chained_notation_in_cctor_calls --n-frames=120 --min-e-pt=17.3 --out-file=hists_minPt17.3.root"
+
