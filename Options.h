@@ -50,12 +50,12 @@ public:
     virtual std::string
     name() const = 0;
 
-    /** Short option name, as e.g. in " -h ", without the trailing minus. */
+    /** Short option name, as e.g. in " -h ", without the leading minus. */
     char
     name_short() const
     { assert(false); return 0; } // not yet implemented
 
-    /** Long option name, as e.g. in " --help ", without the two trailing minuses */
+    /** Long option name, as e.g. in " --help ", without the two leading minuses */
     std::string
     name_long() const
     { assert(false); return ""; } // not yet implemented
