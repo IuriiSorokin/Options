@@ -162,7 +162,7 @@ public:
      *     - Options::parse
      *     - Options::declare_and_set<OptionType>
      *  without the post-processing (as opposed to Option<ValueType>::value() ). \n
-     *  Asserts that the value was set. */
+     *  Throws if the value is not set. Use is_set() ot check */
     value_type
     raw_value() const;
 
@@ -291,15 +291,15 @@ public:
 
     /** Declare a single option. \n
      *  If this option has already been declared, no action is done. \n
-     *  Asserts there are no name collisions. */
+     *  Throws if there is another option with the same name already defined. */
     template<typename OptionType,
     typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type = true >
     Options &
     declare();
 
     /** Declare a non-empty tuple of options. \n
-     *  Options that have already been declared are omitted silently.
-     *  Asserts there are no name collisions.
+     *  Options that have already been declared are omitted silently. \n
+     *  Throws if there is another option with the same name already defined. \n
      *  Note: don't specify the \p Index manually. */
     template<typename TupleType, size_t Index = 0,
     typename std::enable_if< ( Index < (std::tuple_size<TupleType>::value) ), bool >::type = true >
@@ -312,16 +312,15 @@ public:
     Options &
     declare();
 
-    /** Declare an arbitrary combination of options or tuples
-     * (including tuples of tuples). \n
-     * Options that have already been declared are omitted silently.
-     * Asserts there are no name collisions. */
+    /** Declare an arbitrary combination of options or tuples (including tuples of tuples). \n
+     * Options that have already been declared are omitted silently. \n
+     *   Throws if there is another option with the same name already defined. */
     template<typename FirstOptionOrTuple, typename... OtherOptionsOrTuples>
     typename  std::enable_if< (sizeof...(OtherOptionsOrTuples) > 0), Options &>::type
     declare();
 
     /** Un-declare an option.
-     *  Asserts that the option was declared. */
+     *  Throws if the specified option was not declared. */
     template<typename OptionType,
     typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type = true >
     Options &
@@ -338,8 +337,7 @@ public:
     Options &
     declare_set_check( typename OptionType::value_type value );
 
-    /** Checks if the option OptionType has already been declared.
-     *  Asserts that the option was not declared more that once. */
+    /** Checks if the option OptionType has already been declared. */
     template<typename OptionType>
     bool
     is_declared() const;
@@ -356,21 +354,21 @@ public:
     parse( int argc, const char ** argv, std::string optionsFile = "" );
 
     /** Get option object. \n
-     *  Asserts that the option was declared */
+     * Throws if the option was not declared. */
     template<typename OptionType>
     const OptionType&
     get_option() const;
 
     /** Get option object. \n
-     *  Asserts that the option was declared */
+     *  Throws if the option was not declared. */
     template<typename OptionType>
     OptionType&
     get_option();
 
     /** Get the value of the option. \n
      *  Calls check_valid() for this option. \n
-     *  Asserts that the option was declared. \n
-     *  Asserts that the option has a value. \n
+     *  Throws if the option was not declared. \n
+     *  Throws if the option value was not set.  \n
      *  Use \c is_declared<OptionType>() and \c is_set<OptionType>() to check. */
     template<typename OptionType>
     typename OptionType::value_type
@@ -378,21 +376,21 @@ public:
 
     /** Get the raw value of the option. (see Option<ValueType>::raw_value vs Option<ValueType>::value) \n
      *  Does not call check_valid().
-     *  Asserts that the option was declared. \n
-     *  Asserts that the option has a value. */
+     *  Throws if the option was not declared. \n
+     *  Throws if the option value was not set. */
     template<typename OptionType>
     typename OptionType::value_type
     get_raw() const;
 
     /** If the option was set, returns its value,
      *  otherwise returns \p fallback. \n
-     *  Asserts that the option was declared. */
+     *  Throws if the option was not declared. */
     template<typename OptionType>
     typename OptionType::value_type
     get_value_or( typename OptionType::value_type fallback ) const;
 
     /** True if the option value was set.
-     *  Asserts that the option was declared */
+     *  Throws if the option was not declared.*/
     template<typename OptionType>
     bool
     is_set() const;
@@ -404,7 +402,7 @@ public:
 
     /** Set the option value. \n
      *  Old value, if was available, is overwritten silently. \n
-     *  Asserts that the option was declared. \n
+     *  Throws if the option was not declared. \n
      *  No validity check is done. */
     template<typename OptionType>
     Options&
@@ -430,8 +428,9 @@ public:
     print_values( std::ostream& os = std::cout ) const;
 
 protected:
-    /** If the dynamic type of the \p option is OptionType, asserts that option.name() is the same as OptionType().name(). \n
-     *  If the dynamic type of the \p option is different from OptionType, asserts that option.name() is different from OptionType().name(). */
+    /** Checks that
+     *     if the options \p option and \p OptionType are of the same  type,  then they also have the same name,
+     *     if the options \p option and \p OptionType are of different types, then they also have different names */
     template<typename OptionType>
     void
     assert_no_name_collision( const OptionBase& option ) const;
