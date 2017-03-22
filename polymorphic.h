@@ -10,6 +10,8 @@
 
 #include <memory>
 #include <assert.h>
+#include <ostream>
+#include <iostream>
 
 namespace detail {
 
@@ -65,7 +67,6 @@ public:
     {
         return std::unique_ptr<PolymorphicStorageBase<BaseType>>( new PolymorphicStorageImpl<BaseType,ActualType>(*this) );
     }
-
 };
 
 }
@@ -85,7 +86,7 @@ public:
     template<
         typename ActualType,
         typename std::enable_if< std::is_base_of< BaseType, ActualType >::value, bool >::type = true >
-    polymorphic( ActualType&& val )
+    polymorphic( ActualType val )
     :  _storage( new detail::PolymorphicStorageImpl<BaseType,ActualType>( val ) )
     {}
 
@@ -130,6 +131,13 @@ public:
     set( ActualType val )
     {
         _storage.reset( new detail::PolymorphicStorageImpl<BaseType,ActualType>( val ) );
+    }
+
+    friend std::ostream&
+    operator<< (std::ostream& os, const polymorphic<BaseType>& poly )
+    {
+        poly._storage->to_stream( os );
+        return os;
     }
 };
 

@@ -23,7 +23,7 @@ class Option;
 
 /**
  *  /brief Helper class enabling to store objects of different Option<ValueType> implementations
- *         in a single collection, and providing necessary common interface.
+ *         in a single collection, and providing the necessary common interface and functionality.
  */
 class OptionBase
 {
@@ -50,6 +50,20 @@ public:
     virtual std::string
     name() const = 0;
 
+    /** Short option name, as e.g. in " -h ", without the trailing minus. */
+    char
+    name_short() const
+    { assert(false); return 0; } // not yet implemented
+
+    /** Long option name, as e.g. in " --help ", without the two trailing minuses */
+    std::string
+    name_long() const
+    { assert(false); return ""; } // not yet implemented
+
+    /** return the long option name with the leading "--" */
+    std::string
+    name_long_prefixed() const;
+
     /** see Option<ValueType>::group() */
     virtual std::string
     group() const = 0;
@@ -65,6 +79,17 @@ public:
     /** Calls is_valid(...) and throws std::invalid_argument if the value is invalid. */
     void
     check_valid() const;
+
+    /** see Option<ValueType>::is_set(...) */
+    virtual bool
+    is_set() const = 0;
+
+    /** see Option<ValueType>::print_value(...) */
+    virtual std::ostream&
+    print_value( std::ostream& os ) const = 0;
+
+    virtual bool
+    omit_when_printing() const = 0;
 
 protected:
     /** see Option<ValueType>::declare(...) */
@@ -84,7 +109,7 @@ protected:
     /** Pointer to the corresponding Options object. \n
      *  See also assign_to(...) */
     const Options*
-    get_assigned_to() const;
+    get_options() const;
 };
 
 
@@ -142,7 +167,6 @@ public:
     raw_value() const;
 
     /** Override to add a validity check. \n
-     *  If the option is required to always have a value, implement the check here. \n
      *  \param[out] error_message Optional explanation why the option value is invalid. */
     virtual bool
     is_valid( std::string& error_message ) const
@@ -159,8 +183,16 @@ public:
      *     - Option<ValueType>::set(...)
      *     - Options::parse(...)
      *     - Options::declare_and_set<OptionType>(...) */
-    bool
-    is_set() const;
+    virtual bool
+    is_set() const override;
+
+    /** Print value (not the raw_value) using the corresponding operator<< */
+    virtual std::ostream &
+    print_value( std::ostream& os ) const override;
+
+    /** If returns true, then Options::print_values() will omit this option */
+    virtual bool
+    omit_when_printing() const override;
 
 protected:
     /** Declare this option in the \p opt_descr. \n
@@ -177,6 +209,43 @@ protected:
     virtual void
     set_from_vm( const boost::program_options::variables_map& vm ) override final;
 };
+
+
+
+/** Special implementation of a boolean option, enabling to specify it like
+ *
+ *      ./analysis --my-bool-opt
+ *
+ *  insetad of
+ *
+ *      ./analysis --my-bool-opt=true
+ *
+ *  (later form is also supported)
+ *  */
+class OptionSwitch : public Option<bool>
+{
+protected:
+    /** See parent */
+    virtual void
+    declare( boost::program_options::options_description& opt_descr ) const override;
+};
+
+
+
+void
+OptionSwitch::declare( boost::program_options::options_description& opt_descr ) const
+{
+    auto value = boost::program_options::value<value_type>();
+
+    if( default_value().is_initialized() ) {
+        value->default_value( default_value().get() );
+    }
+
+    value->implicit_value( true );
+
+    opt_descr.add_options()( name().c_str(), value, description().c_str() );
+}
+
 
 
 
@@ -219,8 +288,6 @@ public:
     operator=( Options&& other );
 
     ~Options() = default;
-
-    // friend void swap( Options& first, Options& second );
 
     /** Declare a single option. \n
      *  If this option has already been declared, no action is done. \n
@@ -288,13 +355,34 @@ public:
     Options &
     parse( int argc, const char ** argv, std::string optionsFile = "" );
 
+    /** Get option object. \n
+     *  Asserts that the option was declared */
+    template<typename OptionType>
+    const OptionType&
+    get_option() const;
+
+    /** Get option object. \n
+     *  Asserts that the option was declared */
+    template<typename OptionType>
+    OptionType&
+    get_option();
+
     /** Get the value of the option. \n
+     *  Calls check_valid() for this option. \n
      *  Asserts that the option was declared. \n
      *  Asserts that the option has a value. \n
      *  Use \c is_declared<OptionType>() and \c is_set<OptionType>() to check. */
     template<typename OptionType>
     typename OptionType::value_type
     get() const;
+
+    /** Get the raw value of the option. (see Option<ValueType>::raw_value vs Option<ValueType>::value) \n
+     *  Does not call check_valid().
+     *  Asserts that the option was declared. \n
+     *  Asserts that the option has a value. */
+    template<typename OptionType>
+    typename OptionType::value_type
+    get_raw() const;
 
     /** If the option was set, returns its value,
      *  otherwise returns \p fallback. \n
@@ -309,6 +397,11 @@ public:
     bool
     is_set() const;
 
+    /** is_declared() and is_set() in one call */
+    template<typename OptionType>
+    bool
+    is_declared_and_set() const;
+
     /** Set the option value. \n
      *  Old value, if was available, is overwritten silently. \n
      *  Asserts that the option was declared. \n
@@ -322,8 +415,19 @@ public:
     Options&
     set_and_check( typename OptionType::value_type value);
 
+    /** Help is generated by boost::program options. Caption, line length, and the width of the description
+     *  column are set in the constructor:
+     *  Options::Options( const std::string& caption, unsigned lineLength, unsigned minDescriptionLength ); */
     void
-    print_help( std::ostream& os ) const;
+    print_help( std::ostream& os = std::cout ) const;
+
+    /** Print a table \n
+     *     option_name    : value \n
+     *     option_name    : value \n
+     *     ... \n
+     *  The Option<ValueType>::value(), and not Option<ValueType>::raw_value() are printed. */
+    const Options&
+    print_values( std::ostream& os = std::cout ) const;
 
 protected:
     /** If the dynamic type of the \p option is OptionType, asserts that option.name() is the same as OptionType().name(). \n
@@ -340,22 +444,12 @@ protected:
     /** returns _options::cend() if the option was not found (not declared) */
     template<typename OptionType>
     decltype(_options)::const_iterator
-    find_option() const;
+    find_option_const() const;
 
     /** returns _options::end() if the option was not found (not declared) */
     template<typename OptionType>
     decltype(_options)::iterator
     find_option();
-
-    /** Asserts that the option was declared */
-    template<typename OptionType>
-    const OptionType&
-    get_option() const;
-
-    /** Asserts that the option was declared */
-    template<typename OptionType>
-    OptionType&
-    get_option();
 
     options_description
     make_options_description() const;
@@ -376,7 +470,6 @@ protected:
     /** Set the values of all options in \p _options from the \p vm*/
     void
     set_from_vm( const variables_map & vm );
-
 };
 
 
@@ -389,6 +482,14 @@ OptionBase::construct( const Options* options )
     auto option = OptionType();
     dynamic_cast<OptionBase*>(&option)->assign_to( options );
     return option;
+}
+
+
+
+inline std::string
+OptionBase::name_long_prefixed() const
+{
+    return std::string("--") + name();
 }
 
 
@@ -413,7 +514,7 @@ OptionBase::assign_to( const Options* options )
 
 
 inline const Options*
-OptionBase::get_assigned_to() const
+OptionBase::get_options() const
 {
     return _options;
 }
@@ -424,8 +525,9 @@ template< typename ValueType >
 typename Option<ValueType>::value_type
 Option<ValueType>::raw_value() const
 {
-
-    assert( _raw_value.is_initialized() );
+    if( not _raw_value.is_initialized() ) {
+        throw std::runtime_error( std::string("Option ") + name_long_prefixed() + " is not set." );
+    }
     return _raw_value.get();
 }
 
@@ -445,6 +547,24 @@ bool
 Option<ValueType>::is_set() const
 {
     return _raw_value.is_initialized();
+}
+
+
+template< typename ValueType >
+std::ostream &
+Option<ValueType>::print_value( std::ostream& os ) const
+{
+    os << value();
+    return os;
+}
+
+
+
+template< typename ValueType >
+bool
+Option<ValueType>::omit_when_printing() const
+{
+    return false;
 }
 
 
@@ -562,33 +682,6 @@ Options::operator=( Options&& other )
 
 
 
-//void
-//swap( Options& first, Options& second )
-//{
-//    for( auto& option: first._options ) {
-//        assert( option.get().get_assigned_to() == &first );
-//    }
-//    for( auto& option: second._options ) {
-//        assert( option.get().get_assigned_to() == &second );
-//    }
-//
-//    using std::swap;
-//    swap( first._caption,              second._caption    );
-//    swap( first._lineLength,           second._lineLength );
-//    swap( first._minDescriptionLength, second._minDescriptionLength );
-//    swap( first._options,              second._options );
-//
-//    for( auto& option: first._options ) {
-//        option.get().assign_to( &first );
-//    }
-//
-//    for( auto& option: second._options ) {
-//        option.get().assign_to( &second );
-//    }
-//}
-
-
-
 template<typename OptionType,
 typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type >
 Options & Options::declare()
@@ -645,7 +738,10 @@ Options::forget()
         }
     }
 
-    assert( found != _options.end() );
+
+    if( found == _options.end() ) {
+        throw std::logic_error( std::string("Option ") + OptionType().name_long_prefixed() + " was not declared." );
+    }
 
     _options.erase( found );
 
@@ -682,7 +778,7 @@ Options::is_declared() const
     bool declared = false;
     for( const auto& option : _options ) {
         if( typeid( option.get() ) == typeid(OptionType) ) {
-            assert( not declared && "Must not be declared twice" );
+            assert( not declared && "There must be not more than one instance of type OptionType in the _options vector."  );
             declared = true;
         }
     }
@@ -693,7 +789,7 @@ Options::is_declared() const
 
 template<typename OptionType>
 auto
-Options::find_option() const -> decltype(_options)::const_iterator
+Options::find_option_const() const -> decltype(_options)::const_iterator
 {
     auto found = _options.end();
 
@@ -713,8 +809,9 @@ template<typename OptionType>
 auto
 Options::find_option() -> decltype(_options)::iterator
 {
-    const auto& const_this = *this;
-    return decltype(_options)::iterator( const_this.find_option<OptionType>() );
+    auto iter = _options.begin();
+    std::advance( iter, std::distance( _options.cbegin(), find_option_const<OptionType>() ) );
+    return iter;
 }
 
 
@@ -723,8 +820,10 @@ template<typename OptionType>
 const OptionType&
 Options::get_option() const
 {
-    auto iter = find_option<OptionType>();
-    assert( iter != _options.cend() && "Option was found" );
+    auto iter = find_option_const<OptionType>();
+    if( iter == _options.cend() ) {
+        throw std::logic_error( std::string("Option ") + typeid(OptionType).name() + " was not declared." );
+    }
     return dynamic_cast< const OptionType&>( (*iter).get() );
 }
 
@@ -735,7 +834,9 @@ OptionType&
 Options::get_option()
 {
     auto iter = find_option<OptionType>();
-    assert( iter != _options.end() && "Option was found" );
+    if( iter == _options.cend() ) {
+        throw std::logic_error( std::string("Option ") + typeid(OptionType).name() + " was not declared." );
+    }
     return dynamic_cast<OptionType&>( (*iter).get() );
 }
 
@@ -770,7 +871,9 @@ Options::parse( int argc, const char ** argv, std::string optionsFile )
     set_from_vm( vm );
 
     for( const auto& option: _options ) {
-        option.get().check_valid();
+        if( option.get().is_set() ) {
+            option.get().check_valid();
+        }
     }
 
     return *this;
@@ -783,8 +886,24 @@ typename OptionType::value_type
 Options::get() const
 {
     const auto& option = get_option<OptionType>();
-    assert( option.is_set() );
+    if( not option.is_set() ) {
+        throw std::runtime_error( std::string("Option ") + option.name_long_prefixed() + " is not set." );
+    }
+    option.check_valid();
     return option.value();
+}
+
+
+
+template<typename OptionType>
+typename OptionType::value_type
+Options::get_raw() const
+{
+    const auto& option = get_option<OptionType>();
+    if( not option.is_set() ) {
+        throw std::runtime_error( std::string("Option ") + option.name_long_prefixed() + " is not set." );
+    }
+    return option.raw_value();
 }
 
 
@@ -794,6 +913,15 @@ bool
 Options::is_set() const
 {
     return get_option<OptionType>().is_set();
+}
+
+
+
+template<typename OptionType>
+bool
+Options::is_declared_and_set() const
+{
+    return is_declared<OptionType>() && is_set<OptionType>();
 }
 
 
@@ -872,6 +1000,36 @@ Options::print_help( std::ostream& os ) const
 
 
 
+inline const Options&
+Options::print_values( std::ostream& os ) const
+{
+    size_t maxNameLength = 0;
+    for( const auto& option : _options ) {
+        if( option.get().omit_when_printing() ) {
+            continue;
+        }
+        maxNameLength = std::max( maxNameLength, option.get().name().size() );
+    }
+
+    for( const auto& option : _options ) {
+        if( option.get().omit_when_printing() ) {
+            continue;
+        }
+        std::string name_with_spaces;
+        name_with_spaces = option.get().name();
+        name_with_spaces.append( maxNameLength - name_with_spaces.size(), ' ' );
+        os << name_with_spaces << "  : ";
+        if( option.get().is_set() ) {
+            option.get().print_value( os );
+        }
+        os << std::endl;
+    }
+
+    return *this;
+}
+
+
+
 template<typename OptionType>
 void
 Options::assert_no_name_collision( const OptionBase& option ) const
@@ -880,7 +1038,12 @@ Options::assert_no_name_collision( const OptionBase& option ) const
         assert( option.name() == OptionType().name() && "All instances of OptionType must have the same name."  );
     }
     else {
-        assert( option.name() != OptionType().name() && "Every option must have a unique name." );
+        if( option.name() == OptionType().name() ) {
+            throw std::logic_error( std::string("Options ") + typeid(OptionType).name()
+                    + " has the same name " + OptionType().name()
+                    + " as the previously declared option" + typeid(option).name()
+                    + ". Option names must be unique. " );
+        }
     }
 }
 
