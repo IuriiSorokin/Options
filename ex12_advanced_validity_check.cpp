@@ -21,7 +21,7 @@ struct OptUniformField: public Option<double> {
 
 inline bool OptFieldMap::is_valid( std::string& error_message ) const
 {
-    if( get_options()->is_declared_and_set<OptUniformField>() ) {
+    if( get_options().is_declared_and_set<OptUniformField>() ) {
         error_message = "Option " + name() + " may not be specified together with " + OptUniformField().name();
         return false;
     }
@@ -32,7 +32,7 @@ inline bool OptFieldMap::is_valid( std::string& error_message ) const
 
 inline bool OptUniformField::is_valid( std::string& error_message ) const
 {
-    if( get_options()->is_declared_and_set<OptFieldMap>() ) {
+    if( get_options().is_declared_and_set<OptFieldMap>() ) {
         error_message = "Option " + name() + " may not be specified together with " + OptFieldMap().name();
         return false;
     }

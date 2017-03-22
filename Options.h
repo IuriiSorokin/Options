@@ -106,10 +106,30 @@ protected:
     void
     assign_to( const Options* options );
 
-    /** Pointer to the corresponding Options object. \n
+    /** Returns the corresponding Options object. \n
+     *  Throws if the the option wan not assigned to any Options object \n
      *  See also assign_to(...) */
-    const Options*
+    const Options&
     get_options() const;
+
+    /** Returns the specified option from the associated Options object. \n
+     *  Shortcut for get_options().get_option<OptionType>() */
+    template<typename OptionType,
+             typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type = true >
+    const OptionType&
+    get_option() const;
+
+    /** Returns the value (not raw_value) of the specified option from the associated Options object. \n
+     *  Shortcut for get_options().get<OptionType>() */
+    template<typename OptionType>
+    typename OptionType::value_type
+    get() const;
+
+    /** Returns the value (not raw_value) of the specified option from the associated Options object. \n
+     *  Shortcut for get_options().get_raw<OptionType>() */
+    template<typename OptionType>
+    typename OptionType::value_type
+    get_raw() const;
 };
 
 
@@ -512,10 +532,41 @@ OptionBase::assign_to( const Options* options )
 
 
 
-inline const Options*
+inline const Options&
 OptionBase::get_options() const
 {
-    return _options;
+    if( nullptr == _options ) {
+        throw std::logic_error( std::string("Option ") + typeid(*this).name() + " is not associated with any Options object. assign_to have not been called." );
+    }
+    return *_options;
+}
+
+
+
+template<typename OptionType,
+         typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type >
+const OptionType&
+OptionBase::get_option() const
+{
+    return get_options().get_option<OptionType>();
+}
+
+
+
+template<typename OptionType>
+typename OptionType::value_type
+OptionBase::get() const
+{
+    return get_options().get<OptionType>();
+}
+
+
+
+template<typename OptionType>
+typename OptionType::value_type
+OptionBase::get_raw() const
+{
+    return get_options().get_raw<OptionType>();
 }
 
 

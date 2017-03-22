@@ -29,7 +29,7 @@ struct OptHelp: public OptionSwitch {
 
 inline void OptHelp::print_and_exit_if_set() const {
     if( value() ) {
-        get_options()->print_help( std::cout );
+        get_options().print_help( std::cout );
         exit( EXIT_SUCCESS );
     }
 }

@@ -72,7 +72,7 @@ OptInFile::value() const
         return raw_value();
     }
     else {
-        return get_options()->get<OptDataDir>() + raw_value();
+        return get<OptDataDir>() + raw_value();
     }
 }
 
@@ -85,7 +85,7 @@ OptOutFile::value() const
         return raw_value();
     }
     else {
-        return get_options()->get<OptDataDir>() + raw_value();
+        return get<OptDataDir>() + raw_value();
     }
 }
 
@@ -93,7 +93,7 @@ OptOutFile::value() const
 
 bool OptInFile::is_valid( std::string& error_message ) const
 {
-    if( detail::is_with_absolute_path( raw_value() ) && get_options()->is_set<OptDataDir>() ) {
+    if( detail::is_with_absolute_path( raw_value() ) && get_options().is_set<OptDataDir>() ) {
         error_message = OptInFile().name() + " Must not contain absolute path if " + OptDataDir().name() + " is specified";
         return false;
     }
@@ -104,7 +104,7 @@ bool OptInFile::is_valid( std::string& error_message ) const
 
 bool OptOutFile::is_valid( std::string& error_message ) const
 {
-    if( detail::is_with_absolute_path( raw_value() ) && get_options()->is_set<OptDataDir>() ) {
+    if( detail::is_with_absolute_path( raw_value() ) && get_options().is_set<OptDataDir>() ) {
         error_message = OptOutFile().name() + " Must not contain absolute path if " + OptDataDir().name() + " is specified";
         return false;
     }
