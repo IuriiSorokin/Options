@@ -252,7 +252,7 @@ protected:
 
 
 
-void
+inline void
 OptionSwitch::declare( boost::program_options::options_description& opt_descr ) const
 {
     auto value = boost::program_options::value<value_type>();
