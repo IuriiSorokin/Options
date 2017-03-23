@@ -24,10 +24,10 @@ struct OptHelp: public OptionSwitch {
     std::string  name()          const override { return "help"; }
     std::string  description()   const override { return "Print help and exit"; }
     Optional     default_value() const override { return false; }
-    void         print_and_exit_if_set()        const;
+    void         handle()        const;
 };
 
-inline void OptHelp::print_and_exit_if_set() const {
+inline void OptHelp::handle() const {
     if( value() ) {
         get_options().print_help( std::cout );
         exit( EXIT_SUCCESS );
@@ -45,7 +45,7 @@ int main( int argc, const char** argv )
     opt.declare<OptHelp>();
     opt.parse( argc, argv );
 
-    opt.get_option<OptHelp>().print_and_exit_if_set();
+    opt.get_option<OptHelp>().handle();
 
     std::cout << "Processing       " << opt.get<OptNFrames>()       << " frames" << std::endl;
     std::cout << "Electron Pt cut: " << opt.get<OptMinElectronPt>() << std::endl;

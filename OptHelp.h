@@ -14,11 +14,11 @@ struct OptHelp: public OptionSwitch {
     std::string  name()                  const override { return "help"; }
     std::string  description()           const override { return "Print help and exit"; }
     Optional     default_value()         const override { return false; }
-    void         print_and_exit_if_set() const;
+    void         handle() const;
     bool         omit_when_printing()    const override { return true; }
 };
 
-inline void OptHelp::print_and_exit_if_set() const {
+inline void OptHelp::handle() const {
     if( value() ) {
         get_options().print_help( std::cout );
         exit( EXIT_SUCCESS );

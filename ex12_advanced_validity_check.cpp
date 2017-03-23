@@ -49,7 +49,7 @@ int main( int argc, const char** argv )
 {
     auto options = Options().declare<FieldOptions,OptHelp>().parse( argc, argv );
 
-    options.get_option<OptHelp>().print_and_exit_if_set();
+    options.get_option<OptHelp>().handle();
 
     if( options.is_set<OptFieldMap>() ) {
         std::cout << "Reading magnetic field from " << options.get<OptFieldMap>() << std::endl;

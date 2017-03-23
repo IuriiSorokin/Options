@@ -447,6 +447,33 @@ public:
     const Options&
     print_values( std::ostream& os = std::cout ) const;
 
+    /** Do arbitrary logic within a chained call.
+     *  This is useful in member variable initializer lists,
+     *  when only single expression can be executed. E.g.:
+     *
+     *  MyClass::MyClass( Options options )
+     *  : _options( options.declare<OptionA>()
+     *                     .declare<OptionB>()
+     *                     .call( [&]( Options& o ) {
+     *                          if( o.is_declared<OptionC>() ) {
+     *                                  o.forget<OptionC>();
+     *                                  o.declare<OptionCNew>();
+     *                          }
+     *                      } )
+     *                     .declare<OptionZ>()
+     *                     .parse( argc, argv ) );
+     *
+     *  \p func is a function or a functor with interface equivalent to:
+     *
+     *      void func(Options& opt);
+     *
+     *  \p func is called with *this as an argument
+     *  The func return value is ignored.
+     *  Returns *this    */
+    template<typename Func>
+    Options&
+    call( Func func );
+
 protected:
     /** Checks that
      *     if the options \p option and \p OptionType are of the same  type,  then they also have the same name,
@@ -1075,6 +1102,15 @@ Options::print_values( std::ostream& os ) const
         os << std::endl;
     }
 
+    return *this;
+}
+
+
+template<typename Func>
+Options&
+Options::call( Func func )
+{
+    func( *this );
     return *this;
 }
 

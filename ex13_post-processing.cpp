@@ -120,7 +120,7 @@ using IOOptions = std::tuple< OptDataDir, OptInFile, OptOutFile >;
 int main( int argc, const char** argv )
 {
     auto options = Options().declare<IOOptions,OptHelp>().parse( argc, argv );
-    options.get_option<OptHelp>().print_and_exit_if_set();
+    options.get_option<OptHelp>().handle();
     options.print_values();
     return 0;
 }
