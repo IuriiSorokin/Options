@@ -143,7 +143,7 @@ public:
     using value_type = ValueType;
     using Optional   = boost::optional<value_type>;
 
-private:
+protected:
     Optional       _raw_value;
 
 public:
