@@ -310,37 +310,36 @@ public:
     ~Options() = default;
 
     /** Declare a single option. \n
-     *  If this option has already been declared, no action is done. \n
-     *  Throws if there is another option with the same name already defined. */
+     *  If this or a more derived option has already been declared, no action is done. \n
+     *  If other option with the same name has already been declared, an exception is thrown. */
     template<typename OptionType,
     typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type = true >
     Options &
     declare();
 
     /** Declare a non-empty tuple of options. \n
-     *  Options that have already been declared are omitted silently. \n
-     *  Throws if there is another option with the same name already defined. \n
+     *  Rules of the previous overload apply \n
      *  Note: don't specify the \p Index manually. */
     template<typename TupleType, size_t Index = 0,
     typename std::enable_if< ( Index < (std::tuple_size<TupleType>::value) ), bool >::type = true >
     Options &
     declare();
 
-    /** Declare an empty tuple of options (i.e. do nothing). Necessary for technical reasons. */
+    /** Declare an empty tuple of options, i.e. do nothing. Necessary for technical reasons. */
     template<typename TupleType, size_t Index = 0,
     typename std::enable_if< ( Index == std::tuple_size<TupleType>::value ),  bool >::type = true >
     Options &
     declare();
 
     /** Declare an arbitrary combination of options or tuples (including tuples of tuples). \n
-     * Options that have already been declared are omitted silently. \n
-     *   Throws if there is another option with the same name already defined. */
+     *  Rules of the first overload apply. */
     template<typename FirstOptionOrTuple, typename... OtherOptionsOrTuples>
     typename  std::enable_if< (sizeof...(OtherOptionsOrTuples) > 0), Options &>::type
     declare();
 
-    /** Un-declare an option.
-     *  Throws if the specified option was not declared. */
+    /** Un-declare an option of type OptionType or any derived type.
+     *  If the option was not declared, or if there are more than one option found
+     *  (which normally not be the case), then exception is thrown. */
     template<typename OptionType,
     typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type = true >
     Options &
@@ -475,24 +474,34 @@ public:
     call( Func func );
 
 protected:
-    /** Checks that
-     *     if the options \p option and \p OptionType are of the same  type,  then they also have the same name,
-     *     if the options \p option and \p OptionType are of different types, then they also have different names */
+    /** Checks all declared options, and if one with the same name
+     *  is found, and if it is not of type OptionType or derived,
+     *  then std::logic_error is thrown. */
     template<typename OptionType>
     void
-    assert_no_name_collision( const OptionBase& option ) const;
+    check_no_name_collisions() const;
 
-    /** Calls assert_no_name_collision for all declared options */
-    template<typename OptionType>
-    void
-    assert_no_name_collisions() const;
+//    /** Checks that
+//     *     if the options \p option and \p OptionType are of the same  type,  then they also have the same name,
+//     *     if the options \p option and \p OptionType are of different types, then they also have different names */
+//    template<typename OptionType>
+//    void
+//    assert_no_name_collision( const OptionBase& option ) const;
+//
+//    /** Calls assert_no_name_collision for all declared options */
+//    template<typename OptionType>
+//    void
+//    assert_no_name_collisions() const;
 
-    /** returns _options::cend() if the option was not found (not declared) */
+    /** Returns iterator to option of type OptionType or a more derived one.
+     *  If there there are more than one options of type OptionType or derived,
+     *  then std::logic_error is thrown.
+     *  Returns  _options::cend() if the option was not found (not declared) */
     template<typename OptionType>
     decltype(_options)::const_iterator
     find_option_const() const;
 
-    /** returns _options::end() if the option was not found (not declared) */
+    /** Same as find_option_const(), but non-const. */
     template<typename OptionType>
     decltype(_options)::iterator
     find_option();
@@ -763,9 +772,8 @@ template<typename OptionType,
 typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type >
 Options & Options::declare()
 {
-    assert_no_name_collisions<OptionType>();
-
     if( not is_declared<OptionType>() ) {
+        check_no_name_collisions<OptionType>();
         _options.push_back( polymorphic<OptionBase>( OptionBase::construct<OptionType>( this ) ) );
     }
 
@@ -807,20 +815,13 @@ typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool 
 Options &
 Options::forget()
 {
-    auto found = _options.end();
+    auto opt_iter = find_option<OptionType>();
 
-    for( auto iOption = _options.begin(); iOption < _options.end(); ++iOption ) {
-        if( typeid( iOption->get() ) == typeid(OptionType) ) {
-            found = iOption;
-        }
+    if( opt_iter == _options.end() ) {
+        throw std::logic_error("Option not found");
     }
 
-
-    if( found == _options.end() ) {
-        throw std::logic_error( std::string("Option ") + OptionType().name_long_prefixed() + " was not declared." );
-    }
-
-    _options.erase( found );
+    _options.erase( opt_iter );
 
     return *this;
 }
@@ -852,14 +853,15 @@ template<typename OptionType>
 bool
 Options::is_declared() const
 {
-    bool declared = false;
-    for( const auto& option : _options ) {
-        if( typeid( option.get() ) == typeid(OptionType) ) {
-            assert( not declared && "There must be not more than one instance of type OptionType in the _options vector."  );
-            declared = true;
-        }
-    }
-    return declared;
+    return find_option_const<OptionType>() != _options.cend();
+//    bool declared = false;
+//    for( const auto& option : _options ) {
+//        if( typeid( option.get() ) == typeid(OptionType) ) {
+//            assert( not declared && "There must be not more than one instance of type OptionType in the _options vector."  );
+//            declared = true;
+//        }
+//    }
+//    return declared;
 }
 
 
@@ -871,8 +873,10 @@ Options::find_option_const() const -> decltype(_options)::const_iterator
     auto found = _options.end();
 
     for( auto iOption = _options.begin(); iOption < _options.end(); ++iOption ) {
-        if( typeid( iOption->get() ) == typeid(OptionType) ) {
-            assert( found == _options.end() && "There must be not more than one instance of type OptionType in the _options vector." );
+        if( dynamic_cast< const OptionType* >( &(iOption->get()) ) ) {
+            if( found != _options.end() ) {
+                throw std::logic_error("There must be not more than one instance of type OptionType in the _options vector.");
+            }
             found = iOption;
         }
     }
@@ -1118,31 +1122,48 @@ Options::call( Func func )
 
 template<typename OptionType>
 void
-Options::assert_no_name_collision( const OptionBase& option ) const
+Options::check_no_name_collisions() const
 {
-    if( typeid(option) == typeid(OptionType ) ) {
-        assert( option.name() == OptionType().name() && "All instances of OptionType must have the same name."  );
-    }
-    else {
-        if( option.name() == OptionType().name() ) {
-            throw std::logic_error( std::string("Options ") + typeid(OptionType).name()
-                    + " has the same name " + OptionType().name()
-                    + " as the previously declared option" + typeid(option).name()
-                    + ". Option names must be unique. " );
+    for( const auto& option : _options ) {
+
+        if( option.get().name() == OptionType().name()
+                and nullptr == dynamic_cast< const OptionType * >( &(option.get()) ) ) {
+            throw std::logic_error( std::string("Option ") + typeid(OptionType).name()
+                    + " has the same name as " + OptionType().name()
+                    + " and the first was not derived from the second." );
         }
     }
 }
 
 
-
-template<typename OptionType>
-void
-Options::assert_no_name_collisions() const
-{
-    for( const auto& option : _options ) {
-        assert_no_name_collision<OptionType>( option.get() );
-    }
-}
+//
+//template<typename OptionType>
+//void
+//Options::assert_no_name_collision( const OptionBase& option ) const
+//{
+//    if( typeid(option) == typeid(OptionType ) ) {
+//        assert( option.name() == OptionType().name() && "All instances of OptionType must have the same name."  );
+//    }
+//    else {
+//        if( option.name() == OptionType().name() ) {
+//            throw std::logic_error( std::string("Options ") + typeid(OptionType).name()
+//                    + " has the same name " + OptionType().name()
+//                    + " as the previously declared option" + typeid(option).name()
+//                    + ". Option names must be unique. " );
+//        }
+//    }
+//}
+//
+//
+//
+//template<typename OptionType>
+//void
+//Options::assert_no_name_collisions() const
+//{
+//    for( const auto& option : _options ) {
+//        assert_no_name_collision<OptionType>( option.get() );
+//    }
+//}
 
 
 
