@@ -13,6 +13,6 @@ int main( int argc, const char** argv )
     Options opt;
     opt.declare<OptNFrames>();
     opt.parse( argc, argv );
-    std::cout << "Processing " << opt.get_value<OptNFrames>() << " frames" << std::endl;
+    std::cout << "Processing " << opt.get<OptNFrames>() << " frames" << std::endl;
     return 0;
 }

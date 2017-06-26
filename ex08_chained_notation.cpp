@@ -24,9 +24,9 @@ struct OptOutFileName : public Option<std::string> {
 
 void analysis( const Options& opt )
 {
-    std::cout << "Processing       " << opt.get_value<OptNFrames>()       << " frames" << std::endl;
-    std::cout << "Electron Pt cut: " << opt.get_value<OptMinElectronPt>() << std::endl;
-    std::cout << "Output file:     " << opt.get_value<OptOutFileName>()   << std::endl;
+    std::cout << "Processing       " << opt.get<OptNFrames>()       << " frames" << std::endl;
+    std::cout << "Electron Pt cut: " << opt.get<OptMinElectronPt>() << std::endl;
+    std::cout << "Output file:     " << opt.get<OptOutFileName>()   << std::endl;
 }
 
 

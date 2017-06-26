@@ -49,13 +49,13 @@ int main( int argc, const char** argv )
 {
     auto options = Options().declare<FieldOptions,OptHelp>().parse( argc, argv );
 
-    options.get<OptHelp>().handle();
+    options.get_option<OptHelp>().handle();
 
     if( options.is_set<OptFieldMap>() ) {
-        std::cout << "Reading magnetic field from " << options.get_value<OptFieldMap>() << std::endl;
+        std::cout << "Reading magnetic field from " << options.get<OptFieldMap>() << std::endl;
     }
     else {
-        std::cout << "Assuming uniform field of strength " << options.get_value<OptUniformField>() << std::endl;;
+        std::cout << "Assuming uniform field of strength " << options.get<OptUniformField>() << std::endl;;
     }
 
     return 0;

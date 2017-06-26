@@ -23,8 +23,8 @@ struct BasicAnalysis
     BasicAnalysis( const Options& options )
     {
         std::cout << "Constructing Analysis:" << std::endl;
-        std::cout << "  N Frames to process = " << options.get_value<OptNFrames>()       << std::endl;
-        std::cout << "  Output file         = " << options.get_value<OptOutFileName>()   << std::endl;
+        std::cout << "  N Frames to process = " << options.get<OptNFrames>()       << std::endl;
+        std::cout << "  Output file         = " << options.get<OptOutFileName>()   << std::endl;
     }
 };
 
