@@ -9,8 +9,8 @@ struct OptNFrames : public Option<int> {
 
     bool is_valid( std::string& error_message ) const override
     {
-        if( raw_value() < 0 ) {
-            error_message = "Number of frames must be non-negative. Specified value is " + std::to_string( raw_value() );
+        if( value() < 0 ) {
+            error_message = "Number of frames must be non-negative. Specified value is " + std::to_string( value() );
             return false;
         }
         return true;
@@ -23,6 +23,6 @@ struct OptNFrames : public Option<int> {
 int main( int argc, const char** argv )
 {
     auto options = Options().declare<OptNFrames>().parse( argc, argv );
-    std::cout << "Processing " << options.get<OptNFrames>() << " frames" << std::endl;
+    std::cout << "Processing " << options.get_value<OptNFrames>() << " frames" << std::endl;
     return 0;
 }

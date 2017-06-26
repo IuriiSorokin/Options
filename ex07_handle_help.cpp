@@ -45,11 +45,11 @@ int main( int argc, const char** argv )
     opt.declare<OptHelp>();
     opt.parse( argc, argv );
 
-    opt.get_option<OptHelp>().handle();
+    opt.get<OptHelp>().handle();
 
-    std::cout << "Processing       " << opt.get<OptNFrames>()       << " frames" << std::endl;
-    std::cout << "Electron Pt cut: " << opt.get<OptMinElectronPt>() << std::endl;
-    std::cout << "Output file:     " << opt.get<OptOutFileName>()   << std::endl;
+    std::cout << "Processing       " << opt.get_value<OptNFrames>()       << " frames" << std::endl;
+    std::cout << "Electron Pt cut: " << opt.get_value<OptMinElectronPt>() << std::endl;
+    std::cout << "Output file:     " << opt.get_value<OptOutFileName>()   << std::endl;
 
     return 0;
 }

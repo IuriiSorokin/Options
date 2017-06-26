@@ -36,14 +36,14 @@ int main( int argc, const char** argv )
     opt.declare<OptHelp>();
     opt.parse( argc, argv );
 
-    if( opt.get<OptHelp>() ) {
+    if( opt.get_value<OptHelp>() ) {
         opt.print_help( std::cout );
         return 0;
     }
 
-    std::cout << "Processing       " << opt.get<OptNFrames>()       << " frames" << std::endl;
-    std::cout << "Electron Pt cut: " << opt.get<OptMinElectronPt>() << std::endl;
-    std::cout << "Output file:     " << opt.get<OptOutFileName>()   << std::endl;
+    std::cout << "Processing       " << opt.get_value<OptNFrames>()       << " frames" << std::endl;
+    std::cout << "Electron Pt cut: " << opt.get_value<OptMinElectronPt>() << std::endl;
+    std::cout << "Output file:     " << opt.get_value<OptOutFileName>()   << std::endl;
 
     return 0;
 }

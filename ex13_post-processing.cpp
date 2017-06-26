@@ -26,7 +26,7 @@ bool is_with_absolute_path( std::string pathName )
 struct OptDataDir : public Option<std::string> {
     std::string  name()          const override { return "data-dir"; }
     std::string  description()   const override { return "Input and output directory"; }
-    std::string  value()         const override; //< appended with slash, if necessary
+    std::string  with_trailing_slash() const;
 };
 
 
@@ -34,9 +34,9 @@ struct OptDataDir : public Option<std::string> {
 struct OptInFile : public Option<std::string> {
     std::string  name()          const override { return "in-file"; }
     std::string  description()   const override { return "Input file"; }
-    std::string  value()         const override; //< prepended with the path, if relative path was specified
     Optional     default_value() const override { return std::string("p2sim_m2_p00.root"); }
     bool         is_valid( std::string& error_message ) const override;
+    std::string  with_data_dir() const;
 };
 
 
@@ -44,48 +44,48 @@ struct OptInFile : public Option<std::string> {
 struct OptOutFile : public Option<std::string> {
     std::string  name()          const override { return "out-file"; }
     std::string  description()   const override { return "Output file"; }
-    std::string  value()         const override; //< prepended with the path, if relative path was specified
     Optional     default_value() const override { return std::string("hists.root"); }
     bool         is_valid( std::string& error_message ) const override;
+    std::string  with_data_dir() const;
 };
 
 
 
 inline std::string
-OptDataDir::value() const
+OptDataDir::with_trailing_slash() const
 {
-    const char last_char = *(raw_value().rbegin());
+    const char last_char = *(value().rbegin());
 
     if( last_char == '/' ) {
-        return raw_value();
+        return value();
     }
 
-    return raw_value() + '/';
+    return value() + '/';
 }
 
 
 
 inline std::string
-OptInFile::value() const
+OptInFile::with_data_dir() const
 {
-    if( detail::is_with_absolute_path( raw_value() ) ) {
-        return raw_value();
+    if( detail::is_with_absolute_path( value() ) ) {
+        return value();
     }
     else {
-        return get<OptDataDir>() + raw_value();
+        return get<OptDataDir>().with_trailing_slash() + value();
     }
 }
 
 
 
 inline std::string
-OptOutFile::value() const
+OptOutFile::with_data_dir() const
 {
-    if( detail::is_with_absolute_path( raw_value() ) ) {
-        return raw_value();
+    if( detail::is_with_absolute_path( value() ) ) {
+        return value();
     }
     else {
-        return get<OptDataDir>() + raw_value();
+        return get<OptDataDir>().with_trailing_slash() + value();
     }
 }
 
@@ -93,7 +93,7 @@ OptOutFile::value() const
 
 bool OptInFile::is_valid( std::string& error_message ) const
 {
-    if( detail::is_with_absolute_path( raw_value() ) && get_options().is_set<OptDataDir>() ) {
+    if( detail::is_with_absolute_path( value() ) && get_options().is_set<OptDataDir>() ) {
         error_message = OptInFile().name() + " Must not contain absolute path if " + OptDataDir().name() + " is specified";
         return false;
     }
@@ -104,7 +104,7 @@ bool OptInFile::is_valid( std::string& error_message ) const
 
 bool OptOutFile::is_valid( std::string& error_message ) const
 {
-    if( detail::is_with_absolute_path( raw_value() ) && get_options().is_set<OptDataDir>() ) {
+    if( detail::is_with_absolute_path( value() ) && get_options().is_set<OptDataDir>() ) {
         error_message = OptOutFile().name() + " Must not contain absolute path if " + OptDataDir().name() + " is specified";
         return false;
     }
@@ -120,7 +120,7 @@ using IOOptions = std::tuple< OptDataDir, OptInFile, OptOutFile >;
 int main( int argc, const char** argv )
 {
     auto options = Options().declare<IOOptions,OptHelp>().parse( argc, argv );
-    options.get_option<OptHelp>().handle();
+    options.get<OptHelp>().handle();
     options.print_values();
     return 0;
 }
