@@ -34,113 +34,110 @@ public:
 
 
 
-BOOST_AUTO_TEST_CASE(declare_and_parse_one_option)
-{
-    struct OptNFrames : public Option<int> {
-        std::string name()        const override { return "n-frames"; }
-        std::string description() const override { return "Number of frames to process"; }
-    };
-
-    {
-        Arguments arguments( { "--n-frames=10" } );
-
-        const auto options =
-                Options()
-                .declare<OptNFrames>()
-                .parse( arguments.Argc(), arguments.Argv() );
-
-        BOOST_CHECK_EQUAL( options.get_value<OptNFrames>(), 10 );
-    }
-
-    {
-        Arguments arguments( {} );
-
-        const auto options =
-                Options()
-                .declare<OptNFrames>()
-                .parse( arguments.Argc(), arguments.Argv() );
-
-        bool exception_caught = false;
-        try {
-            options.get_value<OptNFrames>();
-        } catch (const std::exception&) {
-            exception_caught = true;
-        }
-        BOOST_CHECK(exception_caught);
-    }
-
-    {
-        Arguments arguments( {"--n-frames=10"} );
-
-        bool exception_caught = false;
-        try {
-            Options().parse( arguments.Argc(), arguments.Argv() );
-        } catch (const std::exception&) {
-            exception_caught = true;
-        }
-        BOOST_CHECK(exception_caught);
-    }
-}
-
-
-
 BOOST_AUTO_TEST_CASE(short_and_long_name)
 {
     {
-        struct OptNFrames : public Option<int> {
-            std::string name()        const override { return "n-frames"; }
-            std::string description() const override { return "Number of frames to process"; }
+        struct OptNElectrons : public Option<int> {
+            std::string name()        const override { return "n-electrons"; }
+            std::string description() const override { return "Number of electrons to simulate."; }
         };
-        BOOST_CHECK_EQUAL( OptNFrames().name_short(), 0 );
-        BOOST_CHECK_EQUAL( OptNFrames().name_long(),  "n-frames" );
+
+        BOOST_CHECK_EQUAL( OptNElectrons().name_short(), 0 );
+        BOOST_CHECK_EQUAL( OptNElectrons().name_long(),  "n-electrons" );
     }
 
     {
-        struct OptNFrames : public Option<int> {
-            std::string name()        const override { return "n-frames,N"; }
-            std::string description() const override { return "Number of frames to process"; }
+        struct OptNElectrons : public Option<int> {
+            std::string name()        const override { return "n-electrons,N"; }
+            std::string description() const override { return "Number of electrons to simulate."; }
         };
-        BOOST_CHECK_EQUAL( OptNFrames().name_short(), 'N' );
-        BOOST_CHECK_EQUAL( OptNFrames().name_long(),  "n-frames" );
+
+        BOOST_CHECK_EQUAL( OptNElectrons().name_short(), 'N' );
+        BOOST_CHECK_EQUAL( OptNElectrons().name_long(),  "n-electrons" );
     }
 
     {
-        struct OptNFrames : public Option<int> {
-            std::string name()        const override { return "n-frames,N"; }
-            std::string description() const override { return "Number of frames to process"; }
+        struct OptNElectrons : public Option<int> {
+            std::string name()        const override { return ",N"; }
+            std::string description() const override { return "Number of electrons to simulate."; }
         };
-        Arguments arguments( {"-N", "10"} );
-        const auto options = Options().declare<OptNFrames>().parse( arguments.Argc(), arguments.Argv() );
-        BOOST_CHECK_EQUAL( options.get_value<OptNFrames>(), 10 );
+
+        try{
+            OptNElectrons().name_short();
+            BOOST_FAIL("Must throw because there is no long name.");
+        } catch( std::logic_error& e) {}
+
+        try{
+            OptNElectrons().name_long();
+            std::cout << "name short=" << OptNElectrons().name_short() <<std::endl;
+            std::cout << "name long=" << OptNElectrons().name_long() <<std::endl;
+            BOOST_FAIL("Must throw because there is no long name.");
+        } catch( std::logic_error& e) {}
+    }
+
+    {
+        struct OptNElectrons : public Option<int> {
+            std::string name()        const override { return "n-electrons,"; }
+            std::string description() const override { return "Number of electrons to simulate."; }
+        };
+
+        try{
+            OptNElectrons().name_short();
+            BOOST_FAIL("Must throw because there is comma, but no short name.");
+        } catch( std::logic_error& e) {}
+
+        try{
+            OptNElectrons().name_long();
+            BOOST_FAIL("Must throw because there is comma, but no short name.");
+        } catch( std::logic_error& e) {}
     }
 }
 
 
 
-BOOST_AUTO_TEST_CASE(declare_and_parse_tuple_of_options)
+BOOST_AUTO_TEST_CASE(declare_and_parse_one_option)
 {
-    struct OptNFrames : public Option<int> {
-        std::string name()        const override { return "n-frames"; }
-        std::string description() const override { return "Number of frames to process"; }
+
+    struct OptNElectrons : public Option<int> {
+        std::string name()        const override { return "n-electrons,N"; }
+        std::string description() const override { return "Number of electrons to simulate."; }
     };
 
-    struct OptInFile: public Option<std::string> {
-        std::string name()        const override { return "in-file"; }
-        std::string description() const override { return "Input file name"; }
-    };
+    {
+        Arguments args( {"--n-electrons=33"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>(), 33 );
+    }
 
-    Arguments arguments( { "--n-frames=17",
-                           "--in-file=some_input_file.txt" } );
+    {
+        Arguments args( {"--n-electrons", "17"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>(), 17 );
+    }
 
-    using MyOptions = std::tuple<OptNFrames, OptInFile>;
+    {
+        Arguments args( {"-N", "118"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>(), 118 );
+    }
 
-    const auto options =
-            Options()
-            .declare<MyOptions>()
-            .parse( arguments.Argc(), arguments.Argv() );
+    {
+        Arguments args( {"-N0"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>(), 0 );
+    }
 
-    BOOST_CHECK_EQUAL( options.get_value<OptNFrames>(), 17 );
-    BOOST_CHECK_EQUAL( options.get_value<OptInFile>(), "some_input_file.txt" );
+    {
+        Arguments args( {} );
+        try{
+            Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>();
+            BOOST_FAIL("Must throw because the value was not specified.");
+        } catch( std::logic_error& e) {}
+    }
+
+    {
+        Arguments args( {"-n", "22"} );
+        try{
+            Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>();
+            BOOST_FAIL("Must throw because there is no option '-n'.");
+        } catch( std::logic_error& e) {}
+    }
 }
 
 
@@ -149,134 +146,26 @@ BOOST_AUTO_TEST_CASE(declare_and_parse_tuple_of_options)
 
 BOOST_AUTO_TEST_CASE(default_value)
 {
-    struct OptNFrames : public Option<int> {
-        std::string name()          const override { return "n-frames"; }
-        std::string description()   const override { return "Number of frames to process"; }
-        Optional    default_value() const override { return {100}; }
-    };
-
     {
-        Arguments arguments( { "" } );
-        const auto options = Options().declare<OptNFrames>()
-                                      .parse( arguments.Argc(), arguments.Argv() );
-        BOOST_CHECK_EQUAL( options.get_value<OptNFrames>(), 100 );
-    }
+        struct OptMinElectronMomentum : public Option<double> {
+            std::string name()        const override   { return "min-e-momentum"; }
+            std::string description() const override   { return "Minimal electron momentum [MeV/c]."; }
+            Optional    default_value() const override { return 0.1; }
+        };
 
-    {
-        Arguments arguments( { "--n-frames", "83" } );
-
-        const auto options =
-                Options()
-                .declare<OptNFrames>()
-                .parse( arguments.Argc(), arguments.Argv() );
-
-        BOOST_CHECK_EQUAL( options.get_value<OptNFrames>(), 83 );
-    }
-}
-
-
-
-BOOST_AUTO_TEST_CASE(default_value_override_by_specified)
-{
-    struct OptNFrames : public Option<int> {
-        std::string name()          const override { return "n-frames"; }
-        std::string description()   const override { return "Number of frames to process"; }
-        Optional    default_value() const override { return {100}; }
-    };
-
-    Arguments arguments( { "--n-frames", "83" } );
-    const auto options = Options().declare<OptNFrames>()
-                                  .parse( arguments.Argc(), arguments.Argv() );
-    BOOST_CHECK_EQUAL( options.get_value<OptNFrames>(), 83 );
-}
-
-
-
-BOOST_AUTO_TEST_CASE(process_option_value)
-{
-    struct OptDataDir: public Option<std::string> {
-        std::string name()        const override { return "data-dir"; }
-        std::string description() const override { return "Path to the input file. Appended with trailing slash if was not specified."; }
-        Optional    value()       const override {
-            if( raw_value().is_initialized() and raw_value().get().back() != '/' ) {
-                return raw_value().get() + '/';
-            }
-            return raw_value();
+        {
+            Arguments args( {"--min-e-momentum=1.5"} );
+            BOOST_CHECK_EQUAL( Options().declare<OptMinElectronMomentum>().parse( args.Argc(), args.Argv() ).get_value<OptMinElectronMomentum>(), 1.5 );
         }
-    };
 
-    {
-        Arguments arguments( { "--data-dir=~/data/abc" } );
-        const auto options = Options().declare<OptDataDir>()
-                                      .parse( arguments.Argc(), arguments.Argv() );
-        BOOST_CHECK_EQUAL( options.get_value<OptDataDir>(), "~/data/abc/" );
-    }
-
-    {
-        Arguments arguments( { "--data-dir=~/data/abc/" } );
-        const auto options = Options().declare<OptDataDir>()
-                                      .parse( arguments.Argc(), arguments.Argv() );
-        BOOST_CHECK_EQUAL( options.get_value<OptDataDir>(), "~/data/abc/" );
-    }
-}
-
-
-
-BOOST_AUTO_TEST_CASE(use_value_of_other_option)
-{
-    struct OptDataDir: public Option<std::string> {
-        std::string name()        const override { return "data-dir"; }
-        std::string description() const override { return "Path to the input file. Appended with a trailing slash if it was missing."; }
-        Optional    value()       const override {
-            if( raw_value().is_initialized() and raw_value().get().back() != '/' ) {
-                return raw_value().get() + '/';
+        {
+            Arguments args( {} );
+            try{
+                BOOST_CHECK_EQUAL( Options().declare<OptMinElectronMomentum>().parse( args.Argc(), args.Argv() ).get_value<OptMinElectronMomentum>(), 0.1 );
+            } catch( std::logic_error& e) {
+                BOOST_FAIL("Must not throw as the default value was specified.");
             }
-            return raw_value();
         }
-    };
-
-    struct OptInFile: public Option<std::string> {
-        std::string name()        const override { return "in-file"; }
-        std::string description() const override { return "Input file name. If no path is specified, then the path specified --data-dir path is prepended."; }
-        Optional    value()       const override {
-            if( not raw_value().is_initialized() ) {
-                return Optional();
-            }
-
-            const bool contains_path = raw_value().get().find('/') != std::string::npos;
-
-            if( not contains_path ) {
-                const auto path = get_options()->get_value_or<OptDataDir>("");
-                return path + raw_value().get();
-            }
-
-            return raw_value();
-        }
-    };
-
-    using MyOptions = std::tuple<OptDataDir, OptInFile>;
-
-    {
-        Arguments arguments( { "--in-file=trololo.txt"  } );
-        const auto options = Options().declare<MyOptions>()
-                                      .parse( arguments.Argc(), arguments.Argv() );
-        BOOST_CHECK_EQUAL( options.get_value<OptInFile>(), "trololo.txt" );
-    }
-
-    {
-        Arguments arguments( { "--data-dir=~/data/abc",
-                               "--in-file=trololo.txt"  } );
-        const auto options = Options().declare<MyOptions>()
-                                      .parse( arguments.Argc(), arguments.Argv() );
-        BOOST_CHECK_EQUAL( options.get_value<OptInFile>(), "~/data/abc/trololo.txt" );
-    }
-
-    {
-        Arguments arguments( { "--data-dir=~/data/abc",
-                               "--in-file=./trololo.txt"  } );
-        const auto options = Options().declare<MyOptions>()
-                                      .parse( arguments.Argc(), arguments.Argv() );
-        BOOST_CHECK_EQUAL( options.get_value<OptInFile>(), "./trololo.txt" );
     }
 }
 
@@ -286,75 +175,202 @@ BOOST_AUTO_TEST_CASE(option_switch)
 {
     struct OptBatch : public OptionSwitch {
         std::string name()        const override { return "batch,b"; }
-        //std::string name()        const override { return "batch"; }
         std::string description() const override { return "Run in batch mode"; }
-        Optional    default_value() const override { return false; }
     };
 
-    Arguments arguments( { "--batch" } );
-
-    Options options;
-    options.declare<OptBatch>();
-
-    try {
-        options.parse( arguments.Argc(), arguments.Argv() );
-
-        std::cout << "name = " << options.get<OptBatch>().name() << std::endl;
-        std::cout << "n s  = " << options.get<OptBatch>().name_short() << std::endl;
-        std::cout << "n l  = " << options.get<OptBatch>().name_long() << std::endl;
-        std::cout << "spv  = " << options.get<OptBatch>().specified_value() << std::endl;
-        std::cout << "rv   = " << options.get<OptBatch>().raw_value() << std::endl;
-        std::cout << "b    = " << options.get_value<OptBatch>()  << std::endl;
-
-        BOOST_CHECK( options.get_value<OptBatch>() );
-    } catch( const std::exception& e ) {
-        BOOST_FAIL( e.what() );
+    {
+        Arguments args( {"--batch"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), true );
     }
 
+    {
+        Arguments args( {"-b"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), true );
+    }
+
+    {
+        Arguments args( {} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), false );
+    }
+
+    {
+        Arguments args( {"-b0"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), false );
+    }
+
+    {
+        Arguments args( {"--batch=0"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), false);
+    }
+
+    {
+        Arguments args( {"-b1"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), true );
+    }
+
+    {
+        Arguments args( {"--batch=1"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), true);
+    }
+}
+
+
+
+BOOST_AUTO_TEST_CASE(declare_and_parse_tuple_of_options)
+{
+    struct OptNElectrons : public Option<int> {
+        std::string name()        const override { return "n-electrons,N"; }
+        std::string description() const override { return "Number of electrons to simulate."; }
+    };
+
+    struct OptMinElectronMomentum : public Option<double> {
+        std::string name()        const override   { return "min-e-momentum"; }
+        std::string description() const override   { return "Minimal electron momentum [MeV/c]."; }
+        Optional    default_value() const override { return 0.1; }
+    };
+
+    struct OptInFile: public Option<std::string> {
+        std::string name()        const override { return "in-file"; }
+        std::string description() const override { return "Input file name."; }
+    };
+
+    struct OptOutFile: public Option<std::string> {
+        std::string name()        const override { return "out-file"; }
+        std::string description() const override { return "Output file name."; }
+    };
+
+    struct OptBatch : public OptionSwitch {
+        std::string name()        const override { return "batch,b"; }
+        std::string description() const override { return "Run in batch mode"; }
+    };
+
+    using IOOptions          = std::tuple< OptInFile, OptOutFile >;
+    using SimulationOptions  = std::tuple< OptNElectrons, OptMinElectronMomentum, IOOptions >;
+    using ApplicationOptions = std::tuple< SimulationOptions, OptBatch >;
+
+    {
+        Arguments args( { "--in-file", "xxx.txt",
+                          "--out-file", "yyy.txt",
+                          "--min-e-momentum=3.62",
+                          "-N", "160"    } );
+        const auto opt = Options().declare<ApplicationOptions>().parse( args.Argc(), args.Argv() );
+        BOOST_CHECK( opt.is_declared<OptNElectrons>() );
+        BOOST_CHECK( opt.is_declared<OptMinElectronMomentum>() );
+        BOOST_CHECK( opt.is_declared<OptInFile>() );
+        BOOST_CHECK( opt.is_declared<OptOutFile>() );
+        BOOST_CHECK( opt.is_declared<OptBatch>() );
+        BOOST_CHECK_EQUAL( opt.get_value<OptNElectrons>(), 160 );
+        BOOST_CHECK_EQUAL( opt.get_value<OptMinElectronMomentum>(), 3.62 );
+        BOOST_CHECK_EQUAL( opt.get_value<OptBatch>(), false );
+        BOOST_CHECK_EQUAL( opt.get_value<OptInFile>(),  "xxx.txt" );
+        BOOST_CHECK_EQUAL( opt.get_value<OptOutFile>(), "yyy.txt" );
+    }
+}
+
+
+
+BOOST_AUTO_TEST_CASE(process_option_value)
+{
+    struct OptDataDir: public Option<std::string> {
+        std::string name()        const override { return "data-dir"; }
+        std::string description() const override { return "Path to the input file. Appended with trailing slash if was not specified."; }
+        Optional    value()       const override { return raw_value().is_initialized() ? append_slash_if_missing( raw_value().get() ) : Optional(); }
+        std::string append_slash_if_missing( std::string s ) const { return ( s.back() != '/' ) ? (s + '/') : s; }
+    };
+
+    {
+        Arguments args( { "--data-dir=~/data/abc" } );
+        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().parse( args.Argc(), args.Argv() ).get_value<OptDataDir>(), "~/data/abc/" );
+    }
+
+    {
+        Arguments args( { "--data-dir=~/data/abc/" } );
+        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().parse( args.Argc(), args.Argv() ).get_value<OptDataDir>(), "~/data/abc/" );
+    }
+}
+
+
+
+BOOST_AUTO_TEST_CASE(use_value_of_other_option)
+{
+    struct OptDataDir: public Option<std::string> {
+        std::string name()        const override { return "data-dir"; }
+        std::string description() const override { return "Path to the input file. Appended with trailing slash if was not specified."; }
+        std::string append_slash_if_missing( std::string s ) const { return ( s.back() != '/' ) ? (s + '/') : s; }
+        Optional    value()       const override { return raw_value().is_initialized() ? append_slash_if_missing( raw_value().get() ) : Optional(); }
+    };
+
+    struct OptInFile: public Option<std::string> {
+        std::string name()        const override { return "in-file"; }
+        std::string description() const override { return "Input file name. If no path is specified, then the path specified --data-dir path is prepended."; }
+        std::string prepend_path_if_none( std::string name, std::string path ) const { return ( name.find('/') == std::string::npos ) ? path + name : name; };
+        Optional    value()       const override { return raw_value().is_initialized() ? prepend_path_if_none( raw_value().get(), get_options()->get_value_or<OptDataDir>("") ) : Optional(); }
+    };
+
+    {
+        Arguments args( { "--in-file=trololo.txt"  } );
+        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( args.Argc(), args.Argv()).get_value<OptInFile>(), "trololo.txt" );
+    }
+
+    {
+        Arguments args( { "--data-dir=~/data/abc",
+                          "--in-file=trololo.txt"  } );
+        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( args.Argc(), args.Argv()).get_value<OptInFile>(), "~/data/abc/trololo.txt" );
+    }
+
+    {
+        Arguments args( { "--data-dir=~/data/abc",
+                          "--in-file=./trololo.txt"  } );
+        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( args.Argc(), args.Argv()).get_value<OptInFile>(), "./trololo.txt" );
+    }
 }
 
 
 
 BOOST_AUTO_TEST_CASE(derived_option)
 {
-    struct OptNFrames : public Option<int> {
-        std::string name()          const override { return "n-frames"; }
-        std::string description()   const override { return "Number of frames to process"; }
-        Optional    default_value() const override { return 1000; }
+    struct OptMinElectronMomentum : public Option<double> {
+        std::string name()        const override   { return "min-e-momentum"; }
+        std::string description() const override   { return "Minimal electron momentum [MeV/c]."; }
+        Optional    default_value() const override { return 0.1; }
     };
 
-    struct OptNFramesConstrained : public OptNFrames {
-        std::string name()          const override { return "n-frames"; }
-        std::string description()   const override { return "Number of frames to process"; }
-        Optional    default_value() const override { return 10; }
-        Optional    value()         const override { return raw_value() > 100 ? 100 : raw_value(); }
+    struct OptMinElectronMomentumConstrained : public OptMinElectronMomentum {
+        Optional    value() const override {
+            if( raw_value().is_initialized()
+                    and ( raw_value().get() < 0
+                            or raw_value().get() > 100 ) ) {
+                throw std::invalid_argument( "Minimal electron momentum must be within between 0 and 100 MeV/c");
+            }
+            return raw_value();
+        }
     };
 
     {
         try {
-            const auto options = Options()
-                    .declare<OptNFrames>()
-                    .declare<OptNFramesConstrained>();
+            Options().declare<OptMinElectronMomentum>().declare<OptMinElectronMomentumConstrained>();
             BOOST_FAIL("Must throw if derived option with the same names is declared after the base one.");
         } catch (const std::logic_error&) {}
     }
 
     {
         Options options;
-        options.declare<OptNFramesConstrained>();
         try {
-            options.declare<OptNFrames>();
+            options.declare<OptMinElectronMomentumConstrained>().declare<OptMinElectronMomentum>();
         } catch (const std::logic_error&) {
-            BOOST_FAIL("Must not throw if attempting to declare base option after the derived");
+            BOOST_FAIL("Must not throw if declaring base option after the derived");
         }
-        BOOST_CHECK( options.is_declared<OptNFrames>() );
-        BOOST_CHECK( options.is_declared<OptNFramesConstrained>() );
-        BOOST_CHECK_NE( dynamic_cast<OptNFramesConstrained*>( &(options.get<OptNFrames>() ) ), static_cast<OptNFramesConstrained*>(nullptr) );
 
-        Arguments arguments( { "--n-frames=300"} );
-        options.parse( arguments.Argc(), arguments.Argv() );
-        BOOST_CHECK_EQUAL( options.get_value<OptNFrames>(), 100 );
-        BOOST_CHECK_EQUAL( options.get_value<OptNFramesConstrained>(), 100 );
+        BOOST_CHECK( options.is_declared<OptMinElectronMomentum>() );
+        BOOST_CHECK( options.is_declared<OptMinElectronMomentumConstrained>() );
+        BOOST_CHECK( nullptr != dynamic_cast<OptMinElectronMomentumConstrained*>( &(options.get<OptMinElectronMomentum>() ) ) );
+
+        Arguments args( { "--min-e-momentum", "-1.2"} );
+        options.parse( args.Argc(), args.Argv() );
+        try{
+            options.get_value<OptMinElectronMomentum>();
+            BOOST_FAIL("Must throw because the specified min-e-momentum is invalid.");
+        } catch (const std::invalid_argument&) {}
     }
 }
 

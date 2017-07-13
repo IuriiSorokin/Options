@@ -73,7 +73,8 @@ public:
     /** Description of the option, that will be printed in the help.
      *  To be implemented by the user. */
     virtual std::string
-    description() const = 0;
+    description() const
+    { return ""; }
 
     /** Print the value (not the raw_value). */
     virtual std::ostream&
@@ -101,24 +102,48 @@ protected:
     void
     set_options( const Options* options );
 
+    std::tuple<char, std::string>
+    split_name( std::string name ) const;
 };
+
+
+
+std::tuple<char, std::string>
+OptionBase::split_name( std::string name ) const
+{
+    char short_name = 0;
+    std::string long_name;
+    if( name.size() >= 2 and name.at(name.size()-2) == ',' ) {
+        short_name = name.back();
+        long_name  = name.substr( 0, name.size()-2 );
+    } else {
+        short_name = 0;
+        long_name  = name;
+    }
+
+    if( short_name != 0 and not std::isalpha( short_name ) ) {
+        throw std::logic_error("Short option name must be a letter");
+    }
+
+    if( long_name.size() == 0  ) {
+        throw std::logic_error("No long option name specified.");
+    }
+
+    for( const char l : long_name ) {
+        if( l == ',' ) {
+            throw std::logic_error( std::string("Long name may not contain '") + l + "' character." );
+        }
+    }
+
+    return std::make_tuple(short_name, long_name);
+}
 
 
 
 char
 OptionBase::name_short() const
 {
-    const auto comma_pos = name().rfind(',');
-
-    if( comma_pos == name().size() - 2 ) {
-        return name().back();
-    }
-
-    if ( comma_pos != std::string::npos  ) {
-        throw std::logic_error( std::string("Invalid option short name. Full name is ") + name());
-    }
-
-    return 0;
+    return std::get<0>( split_name( name() ) );
 }
 
 
@@ -126,7 +151,7 @@ OptionBase::name_short() const
 std::string
 OptionBase::name_long() const
 {
-    return name().substr(0, name().find(',') );
+    return std::get<1>( split_name( name() ) );
 }
 
 
@@ -225,6 +250,10 @@ Option<ValueType>::raw_value() const -> Optional
 class OptionSwitch : public Option<bool>
 {
 protected:
+    Optional
+    default_value() const override
+    { return false; }
+
     virtual void
     declare( boost::program_options::options_description& opt_descr ) const override;
 };
