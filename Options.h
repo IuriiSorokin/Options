@@ -108,15 +108,16 @@ protected:
 char
 OptionBase::name_short() const
 {
-    if( name().at(1) == ',' ) {
-        const auto c = name().at(0);
-        if( std::isalpha( c ) ) {
-            return c;
-        }
-        else {
-            throw std::logic_error("Invalid short option name.");
-        }
+    const auto comma_pos = name().rfind(',');
+
+    if( comma_pos == name().size() - 2 ) {
+        return name().back();
     }
+
+    if ( comma_pos != std::string::npos  ) {
+        throw std::logic_error( std::string("Invalid option short name. Full name is ") + name());
+    }
+
     return 0;
 }
 
@@ -125,10 +126,7 @@ OptionBase::name_short() const
 std::string
 OptionBase::name_long() const
 {
-    if( name().at(1) == ',' ) {
-        return name().substr( 2 );
-    }
-    return name();
+    return name().substr(0, name().find(',') );
 }
 
 
@@ -511,8 +509,8 @@ Option<ValueType>::set_from_vm( const boost::program_options::variables_map& vm 
 {
     using boost::program_options::variable_value;
 
-    if( vm.count( name() ) ) {
-        const variable_value& variableValue = vm[ name() ];
+    if( vm.count( name_long() ) ) {
+        const variable_value& variableValue = vm[ name_long() ];
         set( variableValue.as<ValueType>() );
     }
 }
@@ -850,12 +848,12 @@ Options::print( std::ostream& os ) const
 {
     size_t maxNameLength = 0;
     for( const auto& option : _options ) {
-        maxNameLength = std::max( maxNameLength, option.get().name().size() );
+        maxNameLength = std::max( maxNameLength, option.get().name_long().size() );
     }
 
     for( const auto& option : _options ) {
         std::string name_with_spaces;
-        name_with_spaces = option.get().name();
+        name_with_spaces = option.get().name_long();
         name_with_spaces.append( maxNameLength - name_with_spaces.size(), ' ' );
         os << name_with_spaces << "  : ";
         option.get().print( os );
@@ -891,20 +889,6 @@ Options::check_no_name_collisions() const
             throw std::logic_error( std::string("Option ") + typeid(OptionType).name()
                     + " has name conflict with the already declared " + typeid(option.get()).name() );
         }
-
-        //
-        //        const bool already_declared_is_a_more_derived = nullptr != dynamic_cast< const OptionType * >( &(option.get()) );
-        //
-        //        if( same_short_names and same_long_names
-        //                and not already_declared_is_a_more_derived ) {
-        //            throw std::logic_error( std::string("Option ") + typeid(OptionType).name()
-        //                    + " has name conflict with the already declared " + typeid(option.get()).name() );
-        //        }
-        //
-        //        if( same_short_names xor same_long_names ) {
-        //                throw std::logic_error( std::string("Option ") + typeid(OptionType).name()
-        //                        + " has name conflict with the already declared " + typeid(option.get()).name() );
-        //        }
     }
 }
 

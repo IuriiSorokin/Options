@@ -34,29 +34,6 @@ public:
 
 
 
-BOOST_AUTO_TEST_CASE(short_and_long_name)
-{
-    {
-        struct OptNFrames : public Option<int> {
-            std::string name()        const override { return "n-frames"; }
-            std::string description() const override { return "Number of frames to process"; }
-        };
-        BOOST_CHECK_EQUAL( OptNFrames().name_short(), 0 );
-        BOOST_CHECK_EQUAL( OptNFrames().name_long(),  "n-frames" );
-    }
-
-    {
-        struct OptNFrames : public Option<int> {
-            std::string name()        const override { return "N,n-frames"; }
-            std::string description() const override { return "Number of frames to process"; }
-        };
-        BOOST_CHECK_EQUAL( OptNFrames().name_short(), 'N' );
-        BOOST_CHECK_EQUAL( OptNFrames().name_long(),  "n-frames" );
-    }
-}
-
-
-
 BOOST_AUTO_TEST_CASE(declare_and_parse_one_option)
 {
     struct OptNFrames : public Option<int> {
@@ -102,6 +79,39 @@ BOOST_AUTO_TEST_CASE(declare_and_parse_one_option)
             exception_caught = true;
         }
         BOOST_CHECK(exception_caught);
+    }
+}
+
+
+
+BOOST_AUTO_TEST_CASE(short_and_long_name)
+{
+    {
+        struct OptNFrames : public Option<int> {
+            std::string name()        const override { return "n-frames"; }
+            std::string description() const override { return "Number of frames to process"; }
+        };
+        BOOST_CHECK_EQUAL( OptNFrames().name_short(), 0 );
+        BOOST_CHECK_EQUAL( OptNFrames().name_long(),  "n-frames" );
+    }
+
+    {
+        struct OptNFrames : public Option<int> {
+            std::string name()        const override { return "n-frames,N"; }
+            std::string description() const override { return "Number of frames to process"; }
+        };
+        BOOST_CHECK_EQUAL( OptNFrames().name_short(), 'N' );
+        BOOST_CHECK_EQUAL( OptNFrames().name_long(),  "n-frames" );
+    }
+
+    {
+        struct OptNFrames : public Option<int> {
+            std::string name()        const override { return "n-frames,N"; }
+            std::string description() const override { return "Number of frames to process"; }
+        };
+        Arguments arguments( {"-N", "10"} );
+        const auto options = Options().declare<OptNFrames>().parse( arguments.Argc(), arguments.Argv() );
+        BOOST_CHECK_EQUAL( options.get_value<OptNFrames>(), 10 );
     }
 }
 
@@ -275,29 +285,32 @@ BOOST_AUTO_TEST_CASE(use_value_of_other_option)
 BOOST_AUTO_TEST_CASE(option_switch)
 {
     struct OptBatch : public OptionSwitch {
-        std::string name()        const override { return "b,batch"; }
+        std::string name()        const override { return "batch,b"; }
+        //std::string name()        const override { return "batch"; }
         std::string description() const override { return "Run in batch mode"; }
         Optional    default_value() const override { return false; }
     };
 
-    Arguments arguments( { "-b"} );
-    // Arguments arguments( { "--batch"} );
+    Arguments arguments( { "--batch" } );
 
     Options options;
     options.declare<OptBatch>();
 
-    bool exception_caught = false;
-    bool batch_mode       = false;
-
     try {
         options.parse( arguments.Argc(), arguments.Argv() );
-        batch_mode = options.get_value<OptBatch>();
-    } catch( const std::exception& ) {
-        exception_caught = true;
+
+        std::cout << "name = " << options.get<OptBatch>().name() << std::endl;
+        std::cout << "n s  = " << options.get<OptBatch>().name_short() << std::endl;
+        std::cout << "n l  = " << options.get<OptBatch>().name_long() << std::endl;
+        std::cout << "spv  = " << options.get<OptBatch>().specified_value() << std::endl;
+        std::cout << "rv   = " << options.get<OptBatch>().raw_value() << std::endl;
+        std::cout << "b    = " << options.get_value<OptBatch>()  << std::endl;
+
+        BOOST_CHECK( options.get_value<OptBatch>() );
+    } catch( const std::exception& e ) {
+        BOOST_FAIL( e.what() );
     }
 
-    BOOST_CHECK( batch_mode );
-    BOOST_CHECK( not exception_caught );
 }
 
 
