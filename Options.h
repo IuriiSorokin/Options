@@ -103,7 +103,7 @@ protected:
 
 
 
-std::tuple<char, std::string>
+inline std::tuple<char, std::string>
 OptionBase::split_name( std::string name ) const
 {
     char short_name = 0;
@@ -135,7 +135,7 @@ OptionBase::split_name( std::string name ) const
 
 
 
-char
+inline char
 OptionBase::name_short() const
 {
     return std::get<0>( split_name( name() ) );
@@ -143,7 +143,7 @@ OptionBase::name_short() const
 
 
 
-std::string
+inline std::string
 OptionBase::name_long() const
 {
     return std::get<1>( split_name( name() ) );
@@ -151,7 +151,7 @@ OptionBase::name_long() const
 
 
 
-std::string
+inline std::string
 OptionBase::to_string() const
 {
     std::ostringstream s;
@@ -161,7 +161,7 @@ OptionBase::to_string() const
 
 
 
-std::ostream&
+inline std::ostream&
 operator<<( std::ostream& os, const OptionBase& option )
 {
     return option.print( os );
