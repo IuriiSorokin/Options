@@ -818,7 +818,7 @@ template<typename OptionType>
 bool&
 Options::is_set() const
 {
-    return get<OptionType>()->value().is_initialized();
+    return get<OptionType>().value().is_initialized();
 }
 
 
