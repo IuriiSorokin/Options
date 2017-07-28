@@ -24,11 +24,11 @@ public:
     Arguments( Arguments&& ) = delete;
 
     const char* const *
-    Argv() const
+    argv() const
     { return _argv.data(); }
 
     int
-    Argc() const
+    argc() const
     { return _argv.size(); }
 };
 
@@ -104,37 +104,37 @@ BOOST_AUTO_TEST_CASE(declare_and_parse_one_option)
     };
 
     {
-        Arguments args( {"--n-electrons=33"} );
-        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>(), 33 );
+        Arguments a( {"--n-electrons=33"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( a.argc(), a.argv() ).get_value<OptNElectrons>(), 33 );
     }
 
     {
-        Arguments args( {"--n-electrons", "17"} );
-        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>(), 17 );
+        Arguments a( {"--n-electrons", "17"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( a.argc(), a.argv() ).get_value<OptNElectrons>(), 17 );
     }
 
     {
-        Arguments args( {"-N", "118"} );
-        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>(), 118 );
+        Arguments a( {"-N", "118"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( a.argc(), a.argv() ).get_value<OptNElectrons>(), 118 );
     }
 
     {
-        Arguments args( {"-N0"} );
-        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>(), 0 );
+        Arguments a( {"-N0"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptNElectrons>().parse( a.argc(), a.argv() ).get_value<OptNElectrons>(), 0 );
     }
 
     {
-        Arguments args( {} );
+        Arguments a( {} );
         try{
-            Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>();
+            Options().declare<OptNElectrons>().parse( a.argc(), a.argv() ).get_value<OptNElectrons>();
             BOOST_FAIL("Must throw because the value was not specified.");
         } catch( std::logic_error& e) {}
     }
 
     {
-        Arguments args( {"-n", "22"} );
+        Arguments a( {"-n", "22"} );
         try{
-            Options().declare<OptNElectrons>().parse( args.Argc(), args.Argv() ).get_value<OptNElectrons>();
+            Options().declare<OptNElectrons>().parse( a.argc(), a.argv() ).get_value<OptNElectrons>();
             BOOST_FAIL("Must throw because there is no option '-n'.");
         } catch( std::logic_error& e) {}
     }
@@ -154,14 +154,14 @@ BOOST_AUTO_TEST_CASE(default_value)
         };
 
         {
-            Arguments args( {"--min-e-momentum=1.5"} );
-            BOOST_CHECK_EQUAL( Options().declare<OptMinElectronMomentum>().parse( args.Argc(), args.Argv() ).get_value<OptMinElectronMomentum>(), 1.5 );
+            Arguments a( {"--min-e-momentum=1.5"} );
+            BOOST_CHECK_EQUAL( Options().declare<OptMinElectronMomentum>().parse( a.argc(), a.argv() ).get_value<OptMinElectronMomentum>(), 1.5 );
         }
 
         {
-            Arguments args( {} );
+            Arguments a( {} );
             try{
-                BOOST_CHECK_EQUAL( Options().declare<OptMinElectronMomentum>().parse( args.Argc(), args.Argv() ).get_value<OptMinElectronMomentum>(), 0.1 );
+                BOOST_CHECK_EQUAL( Options().declare<OptMinElectronMomentum>().parse( a.argc(), a.argv() ).get_value<OptMinElectronMomentum>(), 0.1 );
             } catch( std::logic_error& e) {
                 BOOST_FAIL("Must not throw as the default value was specified.");
             }
@@ -179,38 +179,38 @@ BOOST_AUTO_TEST_CASE(option_switch)
     };
 
     {
-        Arguments args( {"--batch"} );
-        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), true );
+        Arguments a( {"--batch"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( a.argc(), a.argv() ).get_value<OptBatch>(), true );
     }
 
     {
-        Arguments args( {"-b"} );
-        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), true );
+        Arguments a( {"-b"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( a.argc(), a.argv() ).get_value<OptBatch>(), true );
     }
 
     {
-        Arguments args( {} );
-        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), false );
+        Arguments a( {} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( a.argc(), a.argv() ).get_value<OptBatch>(), false );
     }
 
     {
-        Arguments args( {"-b0"} );
-        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), false );
+        Arguments a( {"-b0"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( a.argc(), a.argv() ).get_value<OptBatch>(), false );
     }
 
     {
-        Arguments args( {"--batch=0"} );
-        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), false);
+        Arguments a( {"--batch=0"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( a.argc(), a.argv() ).get_value<OptBatch>(), false);
     }
 
     {
-        Arguments args( {"-b1"} );
-        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), true );
+        Arguments a( {"-b1"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( a.argc(), a.argv() ).get_value<OptBatch>(), true );
     }
 
     {
-        Arguments args( {"--batch=1"} );
-        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( args.Argc(), args.Argv() ).get_value<OptBatch>(), true);
+        Arguments a( {"--batch=1"} );
+        BOOST_CHECK_EQUAL( Options().declare<OptBatch>().parse( a.argc(), a.argv() ).get_value<OptBatch>(), true);
     }
 }
 
@@ -249,11 +249,11 @@ BOOST_AUTO_TEST_CASE(declare_and_parse_tuple_of_options)
     using ApplicationOptions = std::tuple< SimulationOptions, OptBatch >;
 
     {
-        Arguments args( { "--in-file", "xxx.txt",
+        Arguments a( { "--in-file", "xxx.txt",
                           "--out-file", "yyy.txt",
                           "--min-e-momentum=3.62",
                           "-N", "160"    } );
-        const auto opt = Options().declare<ApplicationOptions>().parse( args.Argc(), args.Argv() );
+        const auto opt = Options().declare<ApplicationOptions>().parse( a.argc(), a.argv() );
         BOOST_CHECK( opt.is_declared<OptNElectrons>() );
         BOOST_CHECK( opt.is_declared<OptMinElectronMomentum>() );
         BOOST_CHECK( opt.is_declared<OptInFile>() );
@@ -279,13 +279,13 @@ BOOST_AUTO_TEST_CASE(process_option_value)
     };
 
     {
-        Arguments args( { "--data-dir=~/data/abc" } );
-        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().parse( args.Argc(), args.Argv() ).get_value<OptDataDir>(), "~/data/abc/" );
+        Arguments a( { "--data-dir=~/data/abc" } );
+        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().parse( a.argc(), a.argv() ).get_value<OptDataDir>(), "~/data/abc/" );
     }
 
     {
-        Arguments args( { "--data-dir=~/data/abc/" } );
-        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().parse( args.Argc(), args.Argv() ).get_value<OptDataDir>(), "~/data/abc/" );
+        Arguments a( { "--data-dir=~/data/abc/" } );
+        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().parse( a.argc(), a.argv() ).get_value<OptDataDir>(), "~/data/abc/" );
     }
 }
 
@@ -308,20 +308,20 @@ BOOST_AUTO_TEST_CASE(use_value_of_other_option)
     };
 
     {
-        Arguments args( { "--in-file=trololo.txt"  } );
-        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( args.Argc(), args.Argv()).get_value<OptInFile>(), "trololo.txt" );
+        Arguments a( { "--in-file=trololo.txt"  } );
+        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( a.argc(), a.argv()).get_value<OptInFile>(), "trololo.txt" );
     }
 
     {
-        Arguments args( { "--data-dir=~/data/abc",
+        Arguments a( { "--data-dir=~/data/abc",
                           "--in-file=trololo.txt"  } );
-        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( args.Argc(), args.Argv()).get_value<OptInFile>(), "~/data/abc/trololo.txt" );
+        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( a.argc(), a.argv()).get_value<OptInFile>(), "~/data/abc/trololo.txt" );
     }
 
     {
-        Arguments args( { "--data-dir=~/data/abc",
+        Arguments a( { "--data-dir=~/data/abc",
                           "--in-file=./trololo.txt"  } );
-        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( args.Argc(), args.Argv()).get_value<OptInFile>(), "./trololo.txt" );
+        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( a.argc(), a.argv()).get_value<OptInFile>(), "./trololo.txt" );
     }
 }
 
@@ -365,8 +365,8 @@ BOOST_AUTO_TEST_CASE(derived_option)
         BOOST_CHECK( options.is_declared<OptMinElectronMomentumConstrained>() );
         BOOST_CHECK( nullptr != dynamic_cast<OptMinElectronMomentumConstrained*>( &(options.get<OptMinElectronMomentum>() ) ) );
 
-        Arguments args( { "--min-e-momentum", "-1.2"} );
-        options.parse( args.Argc(), args.Argv() );
+        Arguments a( { "--min-e-momentum", "-1.2"} );
+        options.parse( a.argc(), a.argv() );
         try{
             options.get_value<OptMinElectronMomentum>();
             BOOST_FAIL("Must throw because the specified min-e-momentum is invalid.");

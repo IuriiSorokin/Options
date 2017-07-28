@@ -12,11 +12,6 @@
 #include <fstream>
 #include "polymorphic.h"
 
-/**
- * Todo:
- *   -- support of short option names
- */
-
 
 class OptionBase;
 
