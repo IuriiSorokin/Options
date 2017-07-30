@@ -506,7 +506,9 @@ template< typename ValueType >
 std::ostream &
 Option<ValueType>::print( std::ostream& os ) const
 {
-    os << value();
+    if( value().is_initialized() ) {
+        os << value().get();
+    }
     return os;
 }
 

@@ -17,7 +17,7 @@ struct OptHelp: public OptionSwitch {
 };
 
 inline void OptHelp::handle() const {
-    if( value() ) {
+    if( value().get() ) {
         get_options()->print_help( std::cout );
         exit( EXIT_SUCCESS );
     }
