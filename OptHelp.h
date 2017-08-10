@@ -11,7 +11,7 @@
 #include "Options.h"
 
 struct OptHelp: public OptionSwitch {
-    std::string  name()                  const override { return "help"; }
+    std::string  name()                  const override { return "help,h"; }
     std::string  description()           const override { return "Print help and exit"; }
     void         handle() const;
 };
