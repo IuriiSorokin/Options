@@ -703,9 +703,10 @@ Options::find_option_const() const -> decltype(_options)::const_iterator
     auto found = _options.end();
 
     for( auto iOption = _options.begin(); iOption < _options.end(); ++iOption ) {
-        if( dynamic_cast< const OptionType* >( &(iOption->get()) ) ) {
+        if( dynamic_cast< const OptionType* >( &(iOption->get()) )
+                and OptionType().name() == iOption->get().name() ) {
             if( found != _options.end() ) {
-                throw std::logic_error("There must be not more than one instance of type OptionType in the _options vector.");
+                throw std::logic_error( std::string() + "There must be not more than one instance of type " + typeid(OptionType).name() + " in the _options vector.");
             }
             found = iOption;
         }
