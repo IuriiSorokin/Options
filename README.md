@@ -15,26 +15,9 @@ This is a wrapper around [```boost::program_options```](http://www.boost.org/doc
 * boost
 
 
-## Integrating in your project by simple copying in
-
-#### 1. Copy the ```Options.h``` and ```polymorphic.h``` into your project:
-
-```
-cd <your_project>
-```
-and 
-
-```
-mkdir _temp_dir_
-cd _temp_dir_
-git clone https://bitbucket.org/p2experiment/options .
-git checkout master
-mv Options.h ../
-mv polymorphic.h ../
-cd ..
-rm -rf _temp_dir_
-
-```
+## Integrating in your project
+#### 1. 
+Add ```Options``` as a git submodule, or as CMake ExternalProject, or simply copy ```Options.h``` and ```polymorphic.h``` in.
 
 #### 2. In your CMakeLists.txt: 
 * add ```find_package( Boost REQUIRED program_options )``` 
