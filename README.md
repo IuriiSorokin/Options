@@ -15,8 +15,7 @@ This is a wrapper around [```boost::program_options```](http://www.boost.org/doc
 * boost
 
 
-## Integrating in your project by simple copying in
-
+## Integrating in your project
 #### 1. 
 Add ```Options``` as a git submodule, or as CMake ExternalProject, or simply copy ```Options.h``` and ```polymorphic.h``` in.
 
