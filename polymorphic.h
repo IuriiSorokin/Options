@@ -126,6 +126,20 @@ public:
         return _storage->get();
     }
 
+    BaseType*
+    operator->()
+    {
+        assert( _storage && "Value is set" );
+        return &(_storage->get());
+    }
+
+    const BaseType*
+    operator->() const
+    {
+        assert( _storage && "Value is set" );
+        return &(_storage->get());
+    }
+
     template<typename ActualType>
     void
     set( ActualType val )
