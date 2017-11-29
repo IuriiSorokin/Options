@@ -19,9 +19,11 @@ struct OptOutFileName : Option<std::string> {
     Optional     default_value() const override { return std::string("results.root"); }
 };
 
+using AnalysisOptions = OptionList< OptNFrames, OptMinElectronPt, OptOutFileName >;
+
 int main( int argc, const char** argv )
 {
-    auto options = Options().declare<OptNFrames, OptMinElectronPt, OptOutFileName>()
+    auto options = Options().declare<AnalysisOptions>()
                             .parse( argc, argv );
 
     std::cout << "Processing       " << options.get_value<OptNFrames>() << " frames" << std::endl;

@@ -21,7 +21,7 @@ struct OptOutFileName : public Option<std::string> {
 };
 
 struct OptHelp: public Option<bool> {
-    std::string  name()          const override { return "help"; }
+    std::string  name()          const override { return "help,h"; }
     std::string  description()   const override { return "Print help and exit"; }
     Optional     default_value() const override { return false; }
 };

@@ -1,6 +1,11 @@
 
-#ifndef BASE_OPTIONT_H_
-#define BASE_OPTIONT_H_
+// todo:
+//   comments
+//   sort the options by name
+//   option declaration rules: always prefer more derived!
+
+#ifndef OPTIONS_H_
+#define OPTIONS_H_
 
 #include <typeinfo>
 #include <boost/program_options.hpp>
@@ -10,24 +15,40 @@
 #include <tuple>
 #include <ostream>
 #include <fstream>
+#include <stdexcept>
 #include "polymorphic.h"
 
 
-class OptionBase;
-
+/** Base class for any option. */
 template< typename ValueType >
 class Option;
 
+/** Collection of option objects. Through this class
+ *  parsing is performed, and the option values are
+ *  obtained. */
 class Options;
 
+/** Helper to distinguish between Option and OptionList
+ *  in Options::declare_impl<T>() */
+namespace detail_Options {
+class OptionListBase {};
+}
 
-/**
- *  /brief Helper class enabling to store objects of different Option<ValueType> implementations
- *         in a single collection, and providing the necessary common interface and functionality.
- */
+/** List of options. Can be used to specify a group of options
+ *  that always need to be defined and used together. The options
+ *  are stored as template arguments. */
+template< typename... T >
+class OptionList : private detail_Options::OptionListBase {};
+
+
+
+namespace detail_Options {
+
+/** Helper class enabling to store objects of different Option<ValueType> implementations
+ *  in a single collection, and providing the necessary common interface and functionality. */
 class OptionBase
 {
-    friend class Options;
+    friend class ::Options;
 
 private:
     const Options* _options = nullptr;
@@ -82,7 +103,7 @@ public:
     friend std::ostream&
     operator<<( std::ostream& os, const OptionBase& option );
 
-protected:
+private:
     virtual void
     declare( boost::program_options::options_description& description ) const = 0;
 
@@ -117,16 +138,16 @@ OptionBase::split_name( std::string name ) const
     }
 
     if( short_name != 0 and not std::isalpha( short_name ) ) {
-        throw std::logic_error("Short option name must be a letter");
+        throw std::invalid_argument( std::string("Short option name '") + short_name + "' is not a letter.");
     }
 
     if( long_name.size() == 0  ) {
-        throw std::logic_error("No long option name specified.");
+        throw std::invalid_argument("Long option name was not specified.");
     }
 
     for( const char l : long_name ) {
         if( l == ',' ) {
-            throw std::logic_error( std::string("Long name may not contain '") + l + "' character." );
+            throw std::logic_error( "Long option name contains unallowed ',' character." );
         }
     }
 
@@ -161,8 +182,48 @@ OptionBase::to_string() const
 
 
 
+template<typename OptionT,
+         typename std::enable_if< std::is_base_of< OptionBase, OptionT >::value, bool >::type >
+OptionT
+OptionBase::construct( const Options* options )
+{
+    auto option = OptionT();
+    dynamic_cast<OptionBase*>(&option)->set_options( options );
+    return option;
+}
+
+
+
+inline std::string
+OptionBase::name_long_prefixed() const
+{
+    return std::string("--") + name();
+}
+
+
+
+inline void
+OptionBase::set_options( const Options* options )
+{
+    _options = options;
+}
+
+
+
+inline const Options*
+OptionBase::get_options() const
+{
+    return _options;
+}
+
+
+} // namespace detail_Options
+
+
+
+
 inline std::ostream&
-operator<<( std::ostream& os, const OptionBase& option )
+operator<<( std::ostream& os, const detail_Options::OptionBase& option )
 {
     return option.print( os );
 }
@@ -170,10 +231,10 @@ operator<<( std::ostream& os, const OptionBase& option )
 
 
 /**
- *  Base class for option description.
+ *  Base class for option definition.
  */
 template< typename ValueType >
-class Option : public OptionBase {
+class Option : public detail_Options::OptionBase {
 public:
     using value_type = ValueType;
     using Optional   = boost::optional<value_type>;
@@ -284,7 +345,7 @@ private:
     std::string _caption;    // of the help message
     unsigned    _line_length; // of the help message
     unsigned    _min_description_length; // in the help message
-    std::vector< polymorphic< OptionBase > > _options;
+    std::vector< polymorphic< detail_Options::OptionBase > > _options;
 
 public:
     Options()
@@ -307,41 +368,16 @@ public:
     /** non-virtual ! */
     ~Options() = default;
 
-    /** Single option.
-     *  If this or a more derived option has already been declared, no action is done.
-     *  If other option with the same name has already been declared, an exception is thrown. */
-    template<typename OptionType,
-    typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type = true >
+    /** Declare a single option or option list */
+    template<typename... OptionsOrOptionListsT>
     Options &
-    declare();
-
-    /** Tuple of options.
-     *  Rules of the first overload apply.
-     *  Note: don't specify the \p Index manually. */
-    template<typename TupleType, size_t Index = 0,
-    typename std::enable_if< ( Index < (std::tuple_size<TupleType>::value) ), bool >::type = true >
-    Options &
-    declare();
-
-    /** Empty tuple of options.
-     *  Does nothing.
-     *  Necessary for technical reasons. */
-    template<typename TupleType, size_t Index = 0,
-    typename std::enable_if< ( Index == std::tuple_size<TupleType>::value ),  bool >::type = true >
-    Options &
-    declare();
-
-    /** Declare an arbitrary combination of options or tuples (including tuples of tuples).
-     *  Rules of the first overload apply. */
-    template<typename FirstOptionOrTuple, typename... OtherOptionsOrTuples>
-    typename  std::enable_if< (sizeof...(OtherOptionsOrTuples) > 0), Options &>::type
     declare();
 
     /** Un-declare an option of type OptionType or any derived type.
      *  If the option was not declared, or if there are more than one option found
      *  (which normally not be the case), then exception is thrown. */
     template<typename OptionType,
-    typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type = true >
+    typename std::enable_if< std::is_base_of< detail_Options::OptionBase, OptionType >::value, bool >::type = true >
     Options &
     renounce();
 
@@ -462,43 +498,31 @@ protected:
     /** Set the values of all options in \p _options from the \p vm*/
     void
     set_from_vm( const variables_map & vm );
+
+    template< typename OptionOrOptionListT,
+              typename... OptionsOrOptionListsT,
+              std::enable_if_t< sizeof...(OptionsOrOptionListsT), int > = 0 >
+    Options&
+    declare_impl();
+
+    /** Declare a single option. */
+    template< typename OptionT,
+              std::enable_if_t< std::is_base_of< detail_Options::OptionBase, OptionT >::value, int > = 0 >
+    Options &
+    declare_impl();
+
+    /** Declare an OptionList. */
+    template< typename OptionListT,
+              std::enable_if_t< std::is_base_of< detail_Options::OptionListBase, OptionListT >::value, int > = 0 >
+    Options &
+    declare_impl();
+
+    /** Declare an OptionList. */
+    template< typename... OptionsOrOptionListsT >
+    Options &
+    declare_impl_unpack_list( OptionList<OptionsOrOptionListsT...> option_list );
 };
 
-
-
-template<typename OptionType,
-         typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type >
-OptionType
-OptionBase::construct( const Options* options )
-{
-    auto option = OptionType();
-    dynamic_cast<OptionBase*>(&option)->set_options( options );
-    return option;
-}
-
-
-
-inline std::string
-OptionBase::name_long_prefixed() const
-{
-    return std::string("--") + name();
-}
-
-
-
-inline void
-OptionBase::set_options( const Options* options )
-{
-    _options = options;
-}
-
-
-
-inline const Options*
-OptionBase::get_options() const
-{
-    return _options;
-}
 
 
 
@@ -616,13 +640,37 @@ Options::operator=( Options&& other )
 
 
 
-template<typename OptionType,
-typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type >
-Options & Options::declare()
+template<typename... OptionsOrOptionListsT>
+Options&
+Options::declare()
 {
-    if( not is_declared<OptionType>() ) {
-        check_no_name_collisions<OptionType>();
-        _options.push_back( polymorphic<OptionBase>( OptionBase::construct<OptionType>( this ) ) );
+    declare_impl<OptionsOrOptionListsT...>();
+    return *this;
+}
+
+
+
+template< typename OptionOrOptionListT,
+          typename... OptionsOrOptionListsT,
+          std::enable_if_t< sizeof...(OptionsOrOptionListsT), int > >
+Options&
+Options::declare_impl()
+{
+    declare_impl<OptionOrOptionListT>();
+    declare_impl<OptionsOrOptionListsT...>();
+    return *this;
+}
+
+
+
+template< typename OptionT,
+          std::enable_if_t< std::is_base_of< detail_Options::OptionBase, OptionT >::value, int > >
+Options &
+Options::declare_impl()
+{
+    if( not is_declared<OptionT>() ) {
+        check_no_name_collisions<OptionT>();
+        _options.push_back( polymorphic<detail_Options::OptionBase>( detail_Options::OptionBase::construct<OptionT>( this ) ) );
     }
 
     return *this;
@@ -630,36 +678,72 @@ Options & Options::declare()
 
 
 
-template<typename TupleType, size_t Index,
-typename std::enable_if< ( Index < (std::tuple_size<TupleType>::value) ), bool >::type >
-Options & Options::declare()
+/** Declare an OptionList. */
+template< typename OptionListT,
+          std::enable_if_t< std::is_base_of< detail_Options::OptionListBase, OptionListT >::value, int > >
+Options &
+Options::declare_impl()
 {
-    declare< typename std::tuple_element<Index, TupleType>::type >();
-    return declare< TupleType, Index + 1 >();
-}
-
-
-
-template<typename TupleType, size_t Index,
-typename std::enable_if< ( Index == std::tuple_size<TupleType>::value ) , bool >::type >
-Options & Options::declare()
-{
+    declare_impl_unpack_list( OptionListT() );
     return *this;
 }
 
 
 
-template<typename FirstOptionOrTuple, typename... OtherOptionsOrTuples>
-typename  std::enable_if< (sizeof...(OtherOptionsOrTuples) > 0), Options &>::type
-Options::declare() {
-    declare<FirstOptionOrTuple>();
-    return declare<OtherOptionsOrTuples...>();
+template< typename... OptionsOrOptionListsT >
+Options &
+Options::declare_impl_unpack_list( OptionList<OptionsOrOptionListsT...> option_list )
+{
+    declare_impl<OptionsOrOptionListsT...>();
+    return *this;
 }
 
 
 
+//template<typename OptionType,
+//typename std::enable_if< std::is_base_of< detail_Options::OptionBase, OptionType >::value, bool >::type >
+//Options & Options::declare()
+//{
+//    if( not is_declared<OptionType>() ) {
+//        check_no_name_collisions<OptionType>();
+//        _options.push_back( polymorphic<detail_Options::OptionBase>( detail_Options::OptionBase::construct<OptionType>( this ) ) );
+//    }
+//
+//    return *this;
+//}
+
+
+
+//template<typename TupleType, size_t Index,
+//typename std::enable_if< ( Index < (std::tuple_size<TupleType>::value) ), bool >::type >
+//Options & Options::declare()
+//{
+//    declare< typename std::tuple_element<Index, TupleType>::type >();
+//    return declare< TupleType, Index + 1 >();
+//}
+//
+//
+//
+//template<typename TupleType, size_t Index,
+//typename std::enable_if< ( Index == std::tuple_size<TupleType>::value ) , bool >::type >
+//Options & Options::declare()
+//{
+//    return *this;
+//}
+//
+//
+//
+//template<typename FirstOptionOrTuple, typename... OtherOptionsOrTuples>
+//typename  std::enable_if< (sizeof...(OtherOptionsOrTuples) > 0), Options &>::type
+//Options::declare() {
+//    declare<FirstOptionOrTuple>();
+//    return declare<OtherOptionsOrTuples...>();
+//}
+
+
+
 template<typename OptionType,
-typename std::enable_if< std::is_base_of< OptionBase, OptionType >::value, bool >::type >
+typename std::enable_if< std::is_base_of< detail_Options::OptionBase, OptionType >::value, bool >::type >
 Options &
 Options::renounce()
 {
