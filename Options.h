@@ -147,7 +147,7 @@ OptionBase::split_name( std::string name ) const
 
     for( const char l : long_name ) {
         if( l == ',' ) {
-            throw std::logic_error( "Long option name contains unallowed ',' character." );
+            throw std::logic_error( "Long option name contains disallowed ',' character." );
         }
     }
 

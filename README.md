@@ -1,8 +1,8 @@
-# Options #
-This is a wrapper around [```boost::program_options```](http://www.boost.org/doc/libs/1_63_0/doc/html/program_options.html), designed with the aim to make it easy to manage and reuse any sizeable number of options.
+# Options
+`Options` a wrapper around [```boost::program_options```](http://www.boost.org/doc/libs/1_63_0/doc/html/program_options.html), designed to make it easy to manage and reuse any considerable number of command line options.
 
 ## Main features
-* Every option is a class so it is defined in one place, and can be re-used in several executables.
+* Every option is represented by a class, so it can be defined in one place and reused in several executables.
 * Options are referred to by the class name, and not by a string literal.
 * Options can be listed as ```using MyOptions = std::tuple<Option1, Option2>;``` and even as ```using MyOptionsExtended = std::tuple< MyOptions, Option3 >;``` (where ```MyOptions``` is a tuple), and then declared with a single ```options.declare<MyOptinsExtende>()``` call.
 * Validity check can be implemented. One can also easily get access to the other option values, so one can check for inconsistent combinations of options. 
@@ -11,15 +11,15 @@ This is a wrapper around [```boost::program_options```](http://www.boost.org/doc
 
 
 ## Requirements
-* c++11
+* c++14
 * boost
 
 
 ## Integrating in your project
-#### 1. 
+#### 1. In the source tree:
 Add ```Options``` as a git submodule, or as CMake ExternalProject, or simply copy ```Options.h``` and ```polymorphic.h``` in.
 
-#### 2. In your CMakeLists.txt: 
+#### 2. In the CMakeLists.txt: 
 * add ```find_package( Boost REQUIRED program_options )``` 
 * add ```include_directories( ${Boost_INCLUDE_DIRS} )```
 * link with ```${Boost_LIBRARIES}``` like: 
@@ -27,7 +27,28 @@ Add ```Options``` as a git submodule, or as CMake ExternalProject, or simply cop
 target_link_libraries( <MyAnalysis> <MyLib1> <MyLib2> ... ${Boost_LIBRARIES} )
                                                           ^^^^^^^^^^^^^^^^^^  
 ```
-#### 3. In your c++ project:
+#### 3. In the code:
 ```c++
 #include "Options.h"
 ```
+
+# Examples
+### Define an option
+An option is defined by implementing a class template `Option<T>`:
+
+```c++
+struct OptNFrames : Option<int> {
+    std::string name()        const override { return "n-frames,N"; }
+    std::string description() const override { return "Number of frames to process"; }
+};
+
+```
+
+
+
+
+
+
+
+
+
