@@ -244,9 +244,9 @@ BOOST_AUTO_TEST_CASE(declare_and_parse_tuple_of_options)
         std::string description() const override { return "Run in batch mode"; }
     };
 
-    using IOOptions          = std::tuple< OptInFile, OptOutFile >;
-    using SimulationOptions  = std::tuple< OptNElectrons, OptMinElectronMomentum, IOOptions >;
-    using ApplicationOptions = std::tuple< SimulationOptions, OptBatch >;
+    using IOOptions          = OptionList< OptInFile, OptOutFile >;
+    using SimulationOptions  = OptionList< OptNElectrons, OptMinElectronMomentum, IOOptions >;
+    using ApplicationOptions = OptionList< SimulationOptions, OptBatch >;
 
     {
         Arguments a( { "--in-file", "xxx.txt",

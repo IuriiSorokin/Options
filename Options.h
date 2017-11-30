@@ -103,20 +103,21 @@ public:
     friend std::ostream&
     operator<<( std::ostream& os, const OptionBase& option );
 
-private:
-    virtual void
-    declare( boost::program_options::options_description& description ) const = 0;
-
-    virtual void
-    set_from_vm( const boost::program_options::variables_map& vm ) = 0;
-
+protected:
     /** Owning Options object.
      *  To be used to get the values of other Option's */
     const Options*
     get_options() const;
 
+private:
     void
     set_options( const Options* options );
+
+    virtual void
+    declare( boost::program_options::options_description& description ) const = 0;
+
+    virtual void
+    set_from_vm( const boost::program_options::variables_map& vm ) = 0;
 
     std::tuple<char, std::string>
     split_name( std::string name ) const;

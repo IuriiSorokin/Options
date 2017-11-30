@@ -1,24 +1,19 @@
-cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
-project( options )
+project( Options )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall")
 SET(CMAKE_BUILD_TYPE Debug)
 
-find_package( Boost REQUIRED program_options unit_test_framework )
+find_package( Boost REQUIRED program_options filesystem unit_test_framework )
 include_directories( ${Boost_INCLUDE_DIRS} )
+include_directories( "${PROJECT_SOURCE_DIR}" )
 
-file(GLOB example_cpps "*.cpp")
-foreach( example_cpp ${example_cpps} )
-    get_filename_component(example ${example_cpp} NAME_WE )
-    add_executable( ${example} ${example_cpp} )
-    target_link_libraries( ${example} ${Boost_LIBRARIES}  )
-endforeach( example_cpp ${example_cpps} )
+list( APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake )
+include(add_executables_glob_sources)
 
-if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/run_examples )
-    execute_process(COMMAND ln -s ${CMAKE_CURRENT_SOURCE_DIR}/run_examples ${CMAKE_CURRENT_BINARY_DIR}/ )
-    execute_process(COMMAND chmod a+x ${CMAKE_CURRENT_BINARY_DIR}/run_examples )
-endif()
+add_subdirectory(Examples)
+add_subdirectory(Tests)
 
 
 

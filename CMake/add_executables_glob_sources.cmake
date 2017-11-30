@@ -1,0 +1,8 @@
+function( add_executables_glob_sources GlobMask TargetLinkLibrariesArguments )
+    file( GLOB SourceFiles ${GlobMask} )
+    foreach( SourceFile ${SourceFiles} )
+        get_filename_component( ExecutableName ${SourceFile} NAME_WE )
+        add_executable( ${ExecutableName} ${SourceFile} )
+        target_link_libraries( ${ExecutableName} ${TargetLinkLibrariesArguments} )
+    endforeach( )
+endfunction()
