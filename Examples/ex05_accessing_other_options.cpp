@@ -17,11 +17,10 @@ struct OptDataDir : Option< boost::filesystem::path >
 
 struct OptFileWithImplicitDataDir : Option< boost::filesystem::path >
 {
-    std::string  name() const override
+    std::string name() const override
     {
         return "data-file";
     }
-
 
     std::string description() const override
     {

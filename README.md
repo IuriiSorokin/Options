@@ -289,22 +289,21 @@ Constructing ExtendedAnalysis:
   Output file         = results.root
 ```
 
-The more derived option (`ExtendedAnalysis::OptMinElectronPt`) will overlie the 
-base one (`BasicAnalysis::OptMinElectronPt`). Once the more derived option 
-(`ExtendedAnalysis::OptMinElectronPt`) is declared,  
-a call `options.declare<BasicAnalysis::OptMinElectronPt>()` will do nothing 
-(no error will occur).The object `options` will contain 
-only `ExtendedAnalysis::OptMinElectronPt`. Notice, that one can still do:  
+The more derived option (`ExtendedAnalysis::OptMinElectronPt`) will replace the 
+base one (`BasicAnalysis::OptMinElectronPt`), 
+and will be used instead of it everywhere. E.g. a call:  
 ```c++
-options.get_value<BasicAnalysis::OptMinElectronPt>(); // will return the value of ExtendedAnalysis::OptMinElectronPt
+get_value<BasicAnalysis::OptMinElectronPt>();
 ```
-(such call is made in the `BasicAnalysis` constructor).
+will return the value of `ExtendedAnalysis::OptMinElectronPt`.
 
-WARNING: At present it is required that the more derived option is declared before the base 
-(options within an `OptionList` are declared from left to right). It is planned to remove this requirement in future. 
-
-An attempt to declare two options with the same name, such that neither 
-of the options is derived from the other, will rise an exception.  
+### Priority in option declaration
+1) More derived option will replace its base. An attempt to declare an already 
+   declared option, or a base of an already declared one, will result in no action.
+   In each case it is ensured that the base and the derived options have the same name, 
+   otherwise an exception is thrown.  
+2) It is allowed to declare two options with a common base (can be any other option), 
+   but they must have different names.
 
 ### Validity check
 Validity check can be introduced by overriding the `Option<T>::value()` function.
@@ -595,7 +594,6 @@ Can be done with:
 options.print_help( std::cout );
 ```
 
-### `Options::call(FuncT)`
 It is convenient to define a help option `OptHelp`, as 
 in the previous example. Notice how `OptHelp::handle()` was called:
 ```c++
@@ -610,6 +608,4 @@ as an argument. Inside the lambda `options.get<OptHelp>()`
 returns the reference `OptHelp&`, for which  `handle()` is 
 finally called. `Options::call(FuncT)` also returns the reference 
 to itself.
-
-
 

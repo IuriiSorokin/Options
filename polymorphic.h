@@ -15,57 +15,66 @@
 
 namespace detail {
 
-template< typename BaseType >
-class PolymorphicStorageBase
+template< typename BaseT >
+class wrapper_base
 {
 public:
-    using base_type = BaseType;
+    using base_type = BaseT;
 
     virtual
-    ~PolymorphicStorageBase() = default;
+    ~wrapper_base() = default;
 
-    virtual BaseType&
+    virtual BaseT&
     get() = 0;
 
-    virtual const BaseType&
+    virtual const BaseT&
     get() const = 0;
 
-    virtual std::unique_ptr<PolymorphicStorageBase<BaseType>>
+    virtual std::unique_ptr<wrapper_base<BaseT>>
     clone() const = 0;
+
+    virtual bool
+    is_dynamic_castable_to_actual( const BaseT& other ) const = 0;
 };
 
 
 
-template< typename BaseType, typename ActualType >
-class PolymorphicStorageImpl : public PolymorphicStorageBase< BaseType >
+template< typename BaseT, typename ActualT >
+class wrapper_impl : public wrapper_base< BaseT >
 {
 private:
-    ActualType _object;
+    ActualT _object;
 
 public:
-    PolymorphicStorageImpl( ActualType object )
-    : _object( object )
+    wrapper_impl( ActualT&& object )
+    : _object( std::move(object ) )
     {}
 
     virtual
-    ~PolymorphicStorageImpl() = default;
+    ~wrapper_impl() = default;
 
-    virtual BaseType&
+    virtual BaseT&
     get() override
     {
-        return *( dynamic_cast<BaseType*>(&_object) );
+        return static_cast<BaseT&>(_object);
     }
 
-    virtual const BaseType&
+    virtual const BaseT&
     get() const override
     {
-        return *( dynamic_cast<const BaseType*>(&_object) );
+        return static_cast<const BaseT&>(_object);
     }
 
-    virtual std::unique_ptr<PolymorphicStorageBase<BaseType>>
+    virtual std::unique_ptr<wrapper_base<BaseT>>
     clone() const override
     {
-        return std::unique_ptr<PolymorphicStorageBase<BaseType>>( new PolymorphicStorageImpl<BaseType,ActualType>(*this) );
+        return std::unique_ptr<wrapper_base<BaseT>>( new wrapper_impl<BaseT,ActualT>(*this) );
+    }
+
+    virtual bool
+    is_dynamic_castable_to_actual( const BaseT& other ) const override
+    {
+        return nullptr != dynamic_cast<const ActualT*>( &other );
     }
 };
 
@@ -73,85 +82,79 @@ public:
 
 
 
-template< typename BaseType >
+template< typename BaseT >
 class polymorphic
 {
-    std::unique_ptr< detail::PolymorphicStorageBase<BaseType> > _storage;
+    std::unique_ptr< detail::wrapper_base<BaseT> > _object;
 
 public:
-    polymorphic()
-    : _storage( nullptr )
+    template< typename ActualT,
+              std::enable_if_t< std::is_base_of<BaseT, ActualT>::value, int > = 0 >
+    polymorphic( ActualT&& val )
+    :  _object( new detail::wrapper_impl<BaseT,ActualT>( std::move(val) ) )
     {}
 
-    template<
-        typename ActualType,
-        typename std::enable_if< std::is_base_of< BaseType, ActualType >::value, bool >::type = true >
-    polymorphic( ActualType val )
-    :  _storage( new detail::PolymorphicStorageImpl<BaseType,ActualType>( val ) )
+    polymorphic( const polymorphic<BaseT>& poly )
+    : _object( poly._object->clone() )
     {}
 
-    polymorphic( const polymorphic<BaseType>& poly )
-    : _storage( poly._storage->clone() )
+    polymorphic( polymorphic<BaseT>&& poly )
+    : _object( std::move(poly._object) )
     {}
 
-    polymorphic( polymorphic<BaseType>&& poly )
-    : _storage( std::move(poly._storage) )
-    {}
-
-    polymorphic<BaseType>&
-    operator=( const polymorphic<BaseType>& other )
+    polymorphic<BaseT>&
+    operator=( const polymorphic<BaseT>& other )
     {
-        _storage = other._storage->clone();
+        _object = other._object->clone();
         return *this;
     }
 
-    polymorphic<BaseType>&
-    operator=( polymorphic<BaseType>&& other )
+    polymorphic<BaseT>&
+    operator=( polymorphic<BaseT>&& other )
     {
-        _storage = std::move( other._storage );
+        _object = std::move( other._object );
         return *this;
     }
 
-    BaseType&
+    BaseT&
     get()
     {
-        assert( _storage && "Value is set" );
-        return _storage->get();
+        assert( _object && "Value is set" );
+        return _object->get();
     }
 
-    const BaseType&
+    const BaseT&
     get() const
     {
-        assert( _storage && "Value is set" );
-        return _storage->get();
+        assert( _object && "Value is set" );
+        return _object->get();
     }
 
-    BaseType*
+    BaseT*
     operator->()
     {
-        assert( _storage && "Value is set" );
-        return &(_storage->get());
+        assert( _object && "Value is set" );
+        return &(_object->get());
     }
 
-    const BaseType*
+    const BaseT*
     operator->() const
     {
-        assert( _storage && "Value is set" );
-        return &(_storage->get());
+        assert( _object && "Value is set" );
+        return &(_object->get());
     }
 
-    template<typename ActualType>
+    template<typename ActualT>
     void
-    set( ActualType val )
+    set( ActualT&& val )
     {
-        _storage.reset( new detail::PolymorphicStorageImpl<BaseType,ActualType>( val ) );
+        _object.reset( new detail::wrapper_impl<BaseT,ActualT>( val ) );
     }
 
-    friend std::ostream&
-    operator<< (std::ostream& os, const polymorphic<BaseType>& poly )
+    bool
+    is_dynamic_castable_to_actual( const BaseT& other ) const
     {
-        poly._storage->to_stream( os );
-        return os;
+        return _object->is_dynamic_castable_to_actual( other );
     }
 };
 

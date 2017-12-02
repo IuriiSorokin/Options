@@ -2,7 +2,6 @@
 // todo:
 //   comments
 //   sort the options by name
-//   option declaration rules: always prefer more derived!
 
 #ifndef OPTIONS_H_
 #define OPTIONS_H_
@@ -374,20 +373,22 @@ public:
     Options &
     declare();
 
-    /** Un-declare an option of type OptionType or any derived type.
-     *  If the option was not declared, or if there are more than one option found
-     *  (which normally not be the case), then exception is thrown. */
-    template<typename OptionType,
-    typename std::enable_if< std::is_base_of< detail_Options::OptionBase, OptionType >::value, bool >::type = true >
-    Options &
-    renounce();
+//    /** Un-declare an option of type OptionType or any derived type.
+//     *  If the option was not declared, or if there are more than one option found
+//     *  (which normally not be the case), then exception is thrown. */
+//    template<typename OptionType,
+//    typename std::enable_if< std::is_base_of< detail_Options::OptionBase, OptionType >::value, bool >::type = true >
+//    Options &
+//    renounce();
 
     /** Declare and set in one call. */
     template<typename OptionType>
     Options &
     declare_and_set( typename OptionType::value_type value );
 
-    /** If the option OptionType has already been declared. */
+    /** If the option OptionType or a more derived one was already declared.
+     *  No error is produces if there are more than one options derived from
+     *  OptionType declared. */
     template<typename OptionType>
     bool
     is_declared() const;
@@ -462,10 +463,10 @@ public:
     call( Func func );
 
 protected:
-    /** Throws if OptionType has the same long or short name as any other already declared one. */
-    template<typename OptionType>
-    void
-    check_no_name_collisions() const;
+//    /** Throws if OptionType has the same long or short name as any other already declared one. */
+//    template<typename OptionType>
+//    void
+//    check_no_name_collisions() const;
 
     /** Returns iterator to option of type OptionType or a more derived one.
      *  If there there are more than one options of type OptionType or derived,
@@ -669,10 +670,55 @@ template< typename OptionT,
 Options &
 Options::declare_impl()
 {
-    if( not is_declared<OptionT>() ) {
-        check_no_name_collisions<OptionT>();
-        _options.push_back( polymorphic<detail_Options::OptionBase>( detail_Options::OptionBase::construct<OptionT>( this ) ) );
+    if( is_declared<OptionT>() ) {
+        return *this;
     }
+
+    auto to_replace = _options.end();
+
+    for( auto option_iter = _options.begin(); option_iter < _options.end(); ++option_iter ) {
+        const bool already_declared_is_same = typeid(option_iter->get()).name() == typeid(OptionT).name();
+        const bool already_declared_is_parent = option_iter->is_dynamic_castable_to_actual( OptionT() ) and not already_declared_is_same;
+        const bool already_declared_is_child = dynamic_cast<const OptionT*>(&(option_iter->get())) and not already_declared_is_same;
+        // fourth possible case is that the already declared option is not related to OptionT
+
+        const bool same_long_name  = option_iter->get().name_long() == OptionT().name_long();
+        const bool same_short_name = option_iter->get().name_short() == OptionT().name_short();
+        const bool same_nonempty_short_name = same_short_name and ( option_iter->get().name_short() != 0 );
+
+        if( already_declared_is_parent ) {
+            if( (not same_long_name) or (not same_short_name) ) {
+                throw std::logic_error( std::string() + "Attempting to declare option of type " + typeid(OptionT).name() + ". "
+                                        "Found parent option " + typeid(option_iter->get()).name() + " but the name is different. "
+                                        "Replacing an option by one with different name is not allowed." );
+            }
+            if( to_replace != _options.end() ) {
+                throw std::logic_error( std::string() + "Attempting to declare option of type " + typeid(OptionT).name() + ". "
+                                        "Found more than one parent options with the same name. Don't know which to replace." );
+            }
+            to_replace = option_iter;
+        }
+        else if( already_declared_is_same or already_declared_is_child ) {
+            if( (not same_long_name) or (not same_short_name) ) {
+                throw std::logic_error( std::string() + "Attempting to declare option of type " + typeid(OptionT).name() + ". "
+                                        "Found option of the same or child type " + typeid(option_iter->get()).name() +
+                                        " but the name is different. This should never happen. All instances of any option are "
+                                        "obliged to return the same name." );
+            }
+        }
+        else { // declared is not related to OptionT
+            if( same_long_name or same_nonempty_short_name ) {
+                throw std::logic_error( std::string() + "Can't declare option of type " + typeid(OptionT).name() +
+                                        " because of name collision with option " + typeid(option_iter->get()).name() + "." );
+            }
+        }
+    }
+    
+    if( to_replace != _options.end() ) {
+        _options.erase( to_replace );
+    }
+
+    _options.push_back( polymorphic<detail_Options::OptionBase>( detail_Options::OptionBase::construct<OptionT>( this ) ) );
 
     return *this;
 }
@@ -703,61 +749,19 @@ Options::declare_impl_unpack_list( OptionList<OptionsOrOptionListsT...> option_l
 
 //template<typename OptionType,
 //typename std::enable_if< std::is_base_of< detail_Options::OptionBase, OptionType >::value, bool >::type >
-//Options & Options::declare()
+//Options &
+//Options::renounce()
 //{
-//    if( not is_declared<OptionType>() ) {
-//        check_no_name_collisions<OptionType>();
-//        _options.push_back( polymorphic<detail_Options::OptionBase>( detail_Options::OptionBase::construct<OptionType>( this ) ) );
+//    auto opt_iter = find_option<OptionType>();
+//
+//    if( opt_iter == _options.end() ) {
+//        throw std::logic_error("Option not found");
 //    }
 //
+//    _options.erase( opt_iter );
+//
 //    return *this;
 //}
-
-
-
-//template<typename TupleType, size_t Index,
-//typename std::enable_if< ( Index < (std::tuple_size<TupleType>::value) ), bool >::type >
-//Options & Options::declare()
-//{
-//    declare< typename std::tuple_element<Index, TupleType>::type >();
-//    return declare< TupleType, Index + 1 >();
-//}
-//
-//
-//
-//template<typename TupleType, size_t Index,
-//typename std::enable_if< ( Index == std::tuple_size<TupleType>::value ) , bool >::type >
-//Options & Options::declare()
-//{
-//    return *this;
-//}
-//
-//
-//
-//template<typename FirstOptionOrTuple, typename... OtherOptionsOrTuples>
-//typename  std::enable_if< (sizeof...(OtherOptionsOrTuples) > 0), Options &>::type
-//Options::declare() {
-//    declare<FirstOptionOrTuple>();
-//    return declare<OtherOptionsOrTuples...>();
-//}
-
-
-
-template<typename OptionType,
-typename std::enable_if< std::is_base_of< detail_Options::OptionBase, OptionType >::value, bool >::type >
-Options &
-Options::renounce()
-{
-    auto opt_iter = find_option<OptionType>();
-
-    if( opt_iter == _options.end() ) {
-        throw std::logic_error("Option not found");
-    }
-
-    _options.erase( opt_iter );
-
-    return *this;
-}
 
 
 
@@ -776,7 +780,12 @@ template<typename OptionType>
 bool
 Options::is_declared() const
 {
-    return find_option_const<OptionType>() != _options.cend();
+    for( const auto& option : _options ) {
+        if( dynamic_cast< const OptionType* >( &(option.get()) ) ) {
+            return true;
+        }
+    }
+    return false;
 }
 
 
@@ -788,10 +797,9 @@ Options::find_option_const() const -> decltype(_options)::const_iterator
     auto found = _options.end();
 
     for( auto iOption = _options.begin(); iOption < _options.end(); ++iOption ) {
-        if( dynamic_cast< const OptionType* >( &(iOption->get()) )
-                and OptionType().name() == iOption->get().name() ) {
+        if( dynamic_cast< const OptionType* >( &(iOption->get()) ) ) {
             if( found != _options.end() ) {
-                throw std::logic_error( std::string() + "There must be not more than one instance of type " + typeid(OptionType).name() + " in the _options vector.");
+                throw std::logic_error( std::string() + "More than one option of type " + typeid(OptionType).name() + " is found." );
             }
             found = iOption;
         }
@@ -829,7 +837,7 @@ OptionType&
 Options::get()
 {
     auto iter = find_option<OptionType>();
-    if( iter == _options.cend() ) {
+    if( iter == _options.end() ) {
         throw std::logic_error( std::string("Option ") + OptionType().name_long() + " was not declared." );
     }
     return dynamic_cast<OptionType&>( (*iter).get() );
@@ -937,6 +945,7 @@ Options::parse_from_command_line( const options_description & opt_descr,
 }
 
 
+
 inline void
 Options::set_from_vm( const variables_map & vm )
 {
@@ -987,22 +996,22 @@ Options::call( Func func )
 
 
 
-template<typename OptionType>
-void
-Options::check_no_name_collisions() const
-{
-    for( const auto& option : _options ) {
-        const bool same_short_names =
-                option.get().name_short() == OptionType().name_short()
-                and option.get().name_short() != 0 ;
-        const bool same_long_names  = option.get().name_long()  == OptionType().name_long();
-
-        if( same_short_names or same_long_names ) {
-            throw std::logic_error( std::string("Option ") + typeid(OptionType).name()
-                    + " has name conflict with the already declared " + typeid(option.get()).name() );
-        }
-    }
-}
+//template<typename OptionType>
+//void
+//Options::check_no_name_collisions() const
+//{
+//    for( const auto& option : _options ) {
+//        const bool same_short_names =
+//                option.get().name_short() == OptionType().name_short()
+//                and option.get().name_short() != 0 ;
+//        const bool same_long_names  = option.get().name_long()  == OptionType().name_long();
+//
+//        if( same_short_names or same_long_names ) {
+//            throw std::logic_error( std::string("Option ") + typeid(OptionType).name()
+//                    + " has name conflict with the already declared " + typeid(option.get()).name() );
+//        }
+//    }
+//}
 
 
 

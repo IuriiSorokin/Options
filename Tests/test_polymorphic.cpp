@@ -4,38 +4,66 @@
 #include <boost/test/unit_test.hpp>
 #include "polymorphic.h"
 
-BOOST_AUTO_TEST_CASE(preserve_type)
+struct A {
+    virtual ~A() = default;
+    virtual int f() const { return 3; }
+};
+
+struct B : A
 {
-    struct A {
-        virtual ~A() = default;
-    };
+    virtual int f() const override { return 17; }
+};
 
-    struct B : A {};
+struct C : A
+{
+    virtual int f() const override { return 26; }
+};
 
-    B b;
 
-    polymorphic<A> pa( b );
+BOOST_AUTO_TEST_CASE(polymorphism)
+{
+    polymorphic<A> a( A{} );
+    polymorphic<A> b( B{} );
 
-    BOOST_CHECK_EQUAL( typeid(pa.get()).name(), typeid(B).name() );
+    BOOST_CHECK_EQUAL( typeid(a.get()).name(), typeid(A).name() );
+    BOOST_CHECK_EQUAL( typeid(b.get()).name(), typeid(B).name() );
+
+    BOOST_CHECK_EQUAL( a.get().f(),  3 );
+    BOOST_CHECK_EQUAL( b.get().f(), 17 );
 }
 
 
 
-BOOST_AUTO_TEST_CASE(preserve_state)
+BOOST_AUTO_TEST_CASE(copy)
 {
-    struct A {
-        virtual ~A() = default;
-        int v = 0;
-    };
+    polymorphic<A> a( A{} );
+    polymorphic<A> b( B{} );
 
-    struct B : A {};
+    auto a_copy = a;
+    auto b_copy = b;
 
-    B b;
-    b.v = 123;
-
-    polymorphic<A> pa( b );
-    pa.get().v = -22;
-
-    BOOST_CHECK_EQUAL( pa.get().v, -22);
-    BOOST_CHECK_EQUAL( b.v, 123);
+    BOOST_CHECK_EQUAL( a_copy.get().f(),  3 );
+    BOOST_CHECK_EQUAL( b_copy.get().f(), 17 );
 }
+
+
+
+BOOST_AUTO_TEST_CASE(is_dynamic_castable)
+{
+    polymorphic<A> a( A{} );
+    polymorphic<A> b( B{} );
+    polymorphic<A> c( C{} );
+
+    BOOST_CHECK( a.is_dynamic_castable_to_actual( A{} ) );
+    BOOST_CHECK( a.is_dynamic_castable_to_actual( B{} ) );
+    BOOST_CHECK( a.is_dynamic_castable_to_actual( C{} ) );
+
+    BOOST_CHECK( not b.is_dynamic_castable_to_actual( A{} ) );
+    BOOST_CHECK(     b.is_dynamic_castable_to_actual( B{} ) );
+    BOOST_CHECK( not b.is_dynamic_castable_to_actual( C{} ) );
+
+    BOOST_CHECK( not c.is_dynamic_castable_to_actual( A{} ) );
+    BOOST_CHECK( not c.is_dynamic_castable_to_actual( B{} ) );
+    BOOST_CHECK(     c.is_dynamic_castable_to_actual( C{} ) );
+}
+

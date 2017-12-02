@@ -39,7 +39,6 @@ BOOST_AUTO_TEST_CASE(short_and_long_name)
     {
         struct OptNElectrons : public Option<int> {
             std::string name()        const override { return "n-electrons"; }
-            std::string description() const override { return "Number of electrons to simulate."; }
         };
 
         BOOST_CHECK_EQUAL( OptNElectrons().name_short(), 0 );
@@ -49,7 +48,6 @@ BOOST_AUTO_TEST_CASE(short_and_long_name)
     {
         struct OptNElectrons : public Option<int> {
             std::string name()        const override { return "n-electrons,N"; }
-            std::string description() const override { return "Number of electrons to simulate."; }
         };
 
         BOOST_CHECK_EQUAL( OptNElectrons().name_short(), 'N' );
@@ -59,7 +57,6 @@ BOOST_AUTO_TEST_CASE(short_and_long_name)
     {
         struct OptNElectrons : public Option<int> {
             std::string name()        const override { return ",N"; }
-            std::string description() const override { return "Number of electrons to simulate."; }
         };
 
         try{
@@ -69,16 +66,13 @@ BOOST_AUTO_TEST_CASE(short_and_long_name)
 
         try{
             OptNElectrons().name_long();
-            std::cout << "name short=" << OptNElectrons().name_short() <<std::endl;
-            std::cout << "name long=" << OptNElectrons().name_long() <<std::endl;
             BOOST_FAIL("Must throw because there is no long name.");
         } catch( std::logic_error& e) {}
     }
 
     {
         struct OptNElectrons : public Option<int> {
-            std::string name()        const override { return "n-electrons,"; }
-            std::string description() const override { return "Number of electrons to simulate."; }
+            std::string name()        const override { return "n-electrons,"; } // ! notice the trailing comma in the name
         };
 
         try{
@@ -100,7 +94,6 @@ BOOST_AUTO_TEST_CASE(declare_and_parse_one_option)
 
     struct OptNElectrons : public Option<int> {
         std::string name()        const override { return "n-electrons,N"; }
-        std::string description() const override { return "Number of electrons to simulate."; }
     };
 
     {
@@ -216,7 +209,7 @@ BOOST_AUTO_TEST_CASE(option_switch)
 
 
 
-BOOST_AUTO_TEST_CASE(declare_and_parse_tuple_of_options)
+BOOST_AUTO_TEST_CASE(declare_and_parse_list_of_options)
 {
     struct OptNElectrons : public Option<int> {
         std::string name()        const override { return "n-electrons,N"; }
@@ -269,115 +262,109 @@ BOOST_AUTO_TEST_CASE(declare_and_parse_tuple_of_options)
 
 
 
-BOOST_AUTO_TEST_CASE(process_option_value)
-{
-    struct OptDataDir: public Option<std::string> {
-        std::string name()        const override { return "data-dir"; }
-        std::string description() const override { return "Path to the input file. Appended with trailing slash if was not specified."; }
-        Optional    value()       const override { return raw_value().is_initialized() ? append_slash_if_missing( raw_value().get() ) : Optional(); }
-        std::string append_slash_if_missing( std::string s ) const { return ( s.back() != '/' ) ? (s + '/') : s; }
-    };
-
-    {
-        Arguments a( { "--data-dir=~/data/abc" } );
-        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().parse( a.argc(), a.argv() ).get_value<OptDataDir>(), "~/data/abc/" );
-    }
-
-    {
-        Arguments a( { "--data-dir=~/data/abc/" } );
-        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().parse( a.argc(), a.argv() ).get_value<OptDataDir>(), "~/data/abc/" );
-    }
-}
-
-
-
 BOOST_AUTO_TEST_CASE(use_value_of_other_option)
 {
-    struct OptDataDir: public Option<std::string> {
-        std::string name()        const override { return "data-dir"; }
-        std::string description() const override { return "Path to the input file. Appended with trailing slash if was not specified."; }
-        std::string append_slash_if_missing( std::string s ) const { return ( s.back() != '/' ) ? (s + '/') : s; }
-        Optional    value()       const override { return raw_value().is_initialized() ? append_slash_if_missing( raw_value().get() ) : Optional(); }
+    struct OptA: public Option<int> {
+        std::string name()        const override { return "A"; }
     };
 
-    struct OptInFile: public Option<std::string> {
-        std::string name()        const override { return "in-file"; }
-        std::string description() const override { return "Input file name. If no path is specified, then the path specified --data-dir path is prepended."; }
-        std::string prepend_path_if_none( std::string name, std::string path ) const { return ( name.find('/') == std::string::npos ) ? path + name : name; };
-        Optional    value()       const override { return raw_value().is_initialized() ? prepend_path_if_none( raw_value().get(), get_options()->get_value_or<OptDataDir>("") ) : Optional(); }
+    struct OptSameAsAByDefault: public Option<int> {
+        std::string name()        const override { return "B"; }
+        Optional    value()       const override { return raw_value().is_initialized() ? raw_value() : get_options()->get<OptA>().value(); }
     };
 
     {
-        Arguments a( { "--in-file=trololo.txt"  } );
-        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( a.argc(), a.argv()).get_value<OptInFile>(), "trololo.txt" );
+        Arguments a( { "--A=12"  } );
+        auto options = Options().declare<OptA, OptSameAsAByDefault>().parse( a.argc(), a.argv());
+        BOOST_CHECK_EQUAL( options.get_value<OptSameAsAByDefault>(), 12 );
     }
 
     {
-        Arguments a( { "--data-dir=~/data/abc",
-                          "--in-file=trololo.txt"  } );
-        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( a.argc(), a.argv()).get_value<OptInFile>(), "~/data/abc/trololo.txt" );
-    }
-
-    {
-        Arguments a( { "--data-dir=~/data/abc",
-                          "--in-file=./trololo.txt"  } );
-        BOOST_CHECK_EQUAL( Options().declare<OptDataDir>().declare<OptInFile>().parse( a.argc(), a.argv()).get_value<OptInFile>(), "./trololo.txt" );
+        Arguments a( { "--A=12", "--B=3"  } );
+        auto options = Options().declare<OptA, OptSameAsAByDefault>().parse( a.argc(), a.argv());
+        BOOST_CHECK_EQUAL( options.get_value<OptSameAsAByDefault>(), 3 );
     }
 }
 
 
 
-BOOST_AUTO_TEST_CASE(derived_option)
+BOOST_AUTO_TEST_CASE(derived_replaces_base_independent_of_declaration_order)
 {
-    struct OptMinElectronMomentum : public Option<double> {
-        std::string name()        const override   { return "min-e-momentum"; }
-        std::string description() const override   { return "Minimal electron momentum [MeV/c]."; }
-        Optional    default_value() const override { return 0.1; }
+    struct OptBase : Option<double> {
+        std::string name() const override { return "base"; }
     };
 
-    struct OptMinElectronMomentumConstrained : public OptMinElectronMomentum {
-        Optional    value() const override {
-            if( raw_value().is_initialized()
-                    and ( raw_value().get() < 0
-                            or raw_value().get() > 100 ) ) {
-                throw std::invalid_argument( "Minimal electron momentum must be within between 0 and 100 MeV/c");
-            }
-            return raw_value();
-        }
+    struct OptDerived : OptBase {
     };
 
-    {
-        try {
-            Options().declare<OptMinElectronMomentum>().declare<OptMinElectronMomentumConstrained>();
-            BOOST_FAIL("Must throw if derived option with the same names is declared after the base one.");
-        } catch (const std::logic_error&) {}
+    auto options_base_first    = Options().declare<OptBase>().declare<OptDerived>();
+    auto options_derived_first = Options().declare<OptDerived>().declare<OptBase>();
+    BOOST_CHECK( options_base_first.is_declared<OptDerived>() );
+    BOOST_CHECK( options_derived_first.is_declared<OptDerived>() );
+    BOOST_CHECK_EQUAL( typeid(options_base_first.get<OptBase>()).name(),    typeid(OptDerived).name() );
+    BOOST_CHECK_EQUAL( typeid(options_derived_first.get<OptBase>()).name(), typeid(OptDerived).name() );
+}
+
+
+
+BOOST_AUTO_TEST_CASE(two_options_with_same_name_not_allowed)
+{
+    struct OptBase : Option<double> {
+        std::string name() const override { return "base"; }
+    };
+
+    struct OptDerived1 : OptBase {
+    };
+
+    struct OptDerived2 : OptBase {
+    };
+
+    try {
+        Options().declare<OptBase, OptDerived1, OptDerived2>();
+        BOOST_FAIL("Must throw as two options with same name are not allowed");
     }
-
-    {
-        Options options;
-        try {
-            options.declare<OptMinElectronMomentumConstrained>().declare<OptMinElectronMomentum>();
-        } catch (const std::logic_error&) {
-            BOOST_FAIL("Must not throw if declaring base option after the derived");
-        }
-
-        BOOST_CHECK( options.is_declared<OptMinElectronMomentum>() );
-        BOOST_CHECK( options.is_declared<OptMinElectronMomentumConstrained>() );
-        BOOST_CHECK( nullptr != dynamic_cast<OptMinElectronMomentumConstrained*>( &(options.get<OptMinElectronMomentum>() ) ) );
-
-        Arguments a( { "--min-e-momentum", "-1.2"} );
-        options.parse( a.argc(), a.argv() );
-        try{
-            options.get_value<OptMinElectronMomentum>();
-            BOOST_FAIL("Must throw because the specified min-e-momentum is invalid.");
-        } catch (const std::invalid_argument&) {}
+    catch (std::logic_error& ){
     }
 }
 
 
 
+BOOST_AUTO_TEST_CASE(two_options_with_different_names_are_allowed)
+{
+    struct OptBase : Option<double> {
+        std::string name() const override { return "base"; }
+    };
+
+    struct OptDerived1 : OptBase {
+        std::string name() const override { return "derived1"; }
+    };
+
+    struct OptDerived2 : OptBase {
+        std::string name() const override { return "derived2"; }
+    };
+
+    Options().declare<OptDerived1, OptDerived2>();
+}
 
 
+
+BOOST_AUTO_TEST_CASE(replacing_by_option_with_different_name_not_allowed)
+{
+    struct OptBase : Option<double> {
+        std::string name() const override { return "base"; }
+    };
+
+    struct OptDerived : OptBase {
+        std::string name() const override { return "derived"; }
+    };
+
+    try {
+        Options().declare<OptBase, OptDerived>();
+        BOOST_FAIL("Must throw when declaring a derived option with overridden name.");
+    }
+    catch (std::logic_error& ){
+    }
+}
 
 
 
